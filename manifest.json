@@ -1,0 +1,18 @@
+{
+  "manifest_version": 2,
+  "name": "fast-label-printering",
+  "description": "Print Inventory labels from IDoit using ZPL on Zebra printers",
+  "version": "1.0",
+  "permissions": [
+    "loaclStorage",
+    "tabs",
+    "activeTab",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "sidebar_action": {
+    "default_icon": "icons/star.png",
+    "default_title" : "Fast Label Printer",
+    "default_panel": "sidebar/panel.html"
+  }
+}
