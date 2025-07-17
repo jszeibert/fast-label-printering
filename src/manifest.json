@@ -3,8 +3,14 @@
   "name": "fast-label-printering",
   "description": "Print Inventory labels from IDoit using ZPL on Zebra printers",
   "version": "1.0",
+  "applications": {
+    "gecko": {
+      "id": "fast-label-printering@jszeibert.github.io",
+      "update_url": "https://jszeibert.github.io/fast-label-printering/update.json"
+    }
+  },
   "permissions": [
-    "loaclStorage",
+    "storage",
     "tabs",
     "activeTab",
     "http://*/*",
