@@ -54,11 +54,11 @@ jobs:
         
     - name: Test Firefox extension build
       run: |
-        echo "🦊 Testing Firefox extension build..."
+        echo "🦊 Testing Firefox extension build (self-hosted)..."
         
-        # Test web-ext lint (Firefox compatibility)
-        web-ext lint --source-dir=src --warnings-as-errors
-        echo "✅ Firefox linting passed"
+        # Test web-ext lint für self-hosted extensions
+        web-ext lint --source-dir=src --self-hosted --warnings-as-errors
+        echo "✅ Firefox linting passed (self-hosted)"
         
         # Test web-ext build
         web-ext build --source-dir=src --artifacts-dir=test-artifacts --overwrite-dest

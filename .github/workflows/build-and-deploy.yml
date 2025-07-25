@@ -53,8 +53,8 @@ jobs:
         # Create build directory
         mkdir -p dist
         
-        # Build Firefox XPI (unsigned - for development/prerelease)
-        echo "Building Firefox extension (unsigned)..."
+        # Build Firefox XPI (self-hosted with update_url)
+        echo "Building Firefox extension (self-hosted)..."
         web-ext build --source-dir=src --artifacts-dir=dist --overwrite-dest
         
         # Rename Firefox XPI
