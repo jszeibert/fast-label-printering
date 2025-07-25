@@ -83,6 +83,7 @@ jobs:
           1. Download Firefox `.xpi` file
           2. Submit to Mozilla for signing
           3. After approval, create manual release with signed version
+          4. Update GitHub Pages manually on gh-pages branch
           
           ---
           *This pre-release will be deleted when the final signed release is published.*
