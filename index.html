@@ -3,34 +3,372 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fast Label Printering - Firefox Extension</title>
+    <title>Fast Label Printing - Browser Extension</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .version { background: #f0f8ff; padding: 15px; margin: 15px 0; border-radius: 5px; }
-        .download { background: #ff6b35; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-        .download:hover { background: #e55a2b; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 1rem;
+            padding: 3rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .version {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            display: inline-block;
+            margin: 1rem 0;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .downloads {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+        
+        .download-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 1rem;
+            padding: 2.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+        
+        .download-card:hover {
+            transform: translateY(-5px);
+            border-color: #1976d2;
+            box-shadow: 0 10px 25px rgba(25, 118, 210, 0.15);
+        }
+        
+        .download-card h3 {
+            margin: 0 0 1rem 0;
+            color: #1976d2;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .browser-icon {
+            font-size: 2rem;
+        }
+        
+        .download-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+            color: white;
+            padding: 1rem 2rem;
+            text-decoration: none;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(25, 118, 210, 0.4);
+        }
+        
+        .install-steps {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            font-size: 0.9em;
+            color: #666;
+            text-align: left;
+        }
+        
+        .install-steps ol {
+            margin: 0.5rem 0;
+            padding-left: 1.2rem;
+        }
+        
+        .features {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 2.5rem;
+            border-radius: 1rem;
+            margin: 3rem 0;
+        }
+        
+        .features h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .feature-item {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .feature-item h4 {
+            margin: 0 0 0.5rem 0;
+            color: #1976d2;
+        }
+        
+        .browser-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .browser-feature {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+        }
+        
+        .browser-feature h4 {
+            color: #1976d2;
+            margin: 0 0 1rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .browser-feature ul {
+            margin: 0;
+            padding-left: 1.2rem;
+        }
+        
+        .updates-section {
+            background: #e8f5e8;
+            padding: 2rem;
+            border-radius: 1rem;
+            margin: 3rem 0;
+        }
+        
+        .updates-section h2 {
+            color: #2e7d32;
+            margin-top: 0;
+        }
+        
+        .update-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        
+        .update-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .update-card h4 {
+            margin: 0 0 0.5rem 0;
+            color: #2e7d32;
+        }
+        
+        .links {
+            text-align: center;
+            margin: 3rem 0;
+            padding: 2rem;
+            background: #f8f9fa;
+            border-radius: 1rem;
+        }
+        
+        .links a {
+            color: #1976d2;
+            text-decoration: none;
+            margin: 0 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.3rem;
+            transition: background 0.2s;
+        }
+        
+        .links a:hover {
+            background: #e3f2fd;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            color: #666;
+            font-size: 0.9em;
+            padding: 2rem;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        code {
+            background: #f1f1f1;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.3rem;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
-    <h1>🏷️ Fast Label Printering</h1>
-    <p>A Firefox extension for printing inventory labels from IDoit using ZPL on Zebra printers.</p>
-    
-    <div class="version">
-        <strong>Latest Version:</strong> 1.0
+    <div class="container">
+        <div class="header">
+            <h1>🏷️ Fast Label Printing</h1>
+            <p style="font-size: 1.2rem; color: #666;">A cross-browser extension for printing inventory labels from IDoit using ZPL on Zebra printers</p>
+            <div class="version">
+                Current Version: v1.0
+            </div>
+        </div>
+        
+        <div class="downloads">
+            <div class="download-card">
+                <h3><span class="browser-icon">🦊</span> Firefox</h3>
+                <p>Includes sidebar integration for enhanced workflow and automatic updates</p>
+                <a href="https://github.com/jszeibert/fast-label-printering/releases/latest/download/fast-label-printering-firefox-v1.0.xpi" class="download-btn">
+                    📥 Download Firefox Extension (.xpi)
+                </a>
+                <div class="install-steps">
+                    <strong>Installation:</strong>
+                    <ol>
+                        <li>Download the <code>.xpi</code> file</li>
+                        <li>Open Firefox → <code>about:addons</code></li>
+                        <li>Click gear icon → "Install Add-on From File..."</li>
+                        <li>Select the downloaded file</li>
+                    </ol>
+                </div>
+            </div>
+            
+            <div class="download-card">
+                <h3><span class="browser-icon">🔧</span> Chrome</h3>
+                <p>Popup and side panel support for Chrome users with manual updates</p>
+                <a href="https://github.com/jszeibert/fast-label-printering/releases/latest/download/fast-label-printering-chrome-v1.0.zip" class="download-btn">
+                    📥 Download Chrome Extension (.zip)
+                </a>
+                <div class="install-steps">
+                    <strong>Installation:</strong>
+                    <ol>
+                        <li>Download and extract the <code>.zip</code> file</li>
+                        <li>Open Chrome → <code>chrome://extensions/</code></li>
+                        <li>Enable "Developer mode"</li>
+                        <li>Click "Load unpacked" → select extracted folder</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+        
+        <div class="features">
+            <h2>🌟 Features</h2>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <h4>🌐 Cross-Browser</h4>
+                    <p>Works seamlessly in both Firefox and Chrome with optimized interfaces for each browser</p>
+                </div>
+                <div class="feature-item">
+                    <h4>🏷️ Label Generation</h4>
+                    <p>Automatic extraction of object data from IDoit pages with customizable ZPL templates</p>
+                </div>
+                <div class="feature-item">
+                    <h4>👁️ Live Preview</h4>
+                    <p>Real-time label preview using Labelary API before printing</p>
+                </div>
+                <div class="feature-item">
+                    <h4>🖨️ Direct Printing</h4>
+                    <p>Send ZPL commands directly to Zebra printers via network or USB</p>
+                </div>
+                <div class="feature-item">
+                    <h4>⚙️ Configurable</h4>
+                    <p>Customizable settings for IDoit URL, printer settings, and label templates</p>
+                </div>
+                <div class="feature-item">
+                    <h4>🔄 Smart Updates</h4>
+                    <p>Automatic updates for Firefox, manual updates for Chrome</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="browser-features">
+            <div class="browser-feature">
+                <h4>🦊 Firefox Features</h4>
+                <ul>
+                    <li>Sidebar integration for persistent access</li>
+                    <li>Automatic updates via update manifest</li>
+                    <li>Window-aware tab management</li>
+                    <li>Mozilla Add-ons Store compatible</li>
+                </ul>
+            </div>
+            <div class="browser-feature">
+                <h4>🔧 Chrome Features</h4>
+                <ul>
+                    <li>Popup interface on toolbar click</li>
+                    <li>Side panel support (Chrome 114+)</li>
+                    <li>Manifest V3 compatibility</li>
+                    <li>Developer mode installation</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="updates-section">
+            <h2>🔄 Update Information</h2>
+            <div class="update-info">
+                <div class="update-card">
+                    <h4>🦊 Firefox</h4>
+                    <p>Automatic updates enabled. The extension checks for updates via GitHub Pages and installs them automatically.</p>
+                    <p><strong>Update Manifest:</strong> <a href="update.json">update.json</a></p>
+                </div>
+                <div class="update-card">
+                    <h4>🔧 Chrome</h4>
+                    <p>Manual updates required. Download new versions from this page when available due to Chrome Web Store policies.</p>
+                    <p><strong>Check for updates:</strong> Bookmark this page</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="links">
+            <h3>🔗 Additional Resources</h3>
+            <a href="https://github.com/jszeibert/fast-label-printering">📚 GitHub Repository</a>
+            <a href="https://github.com/jszeibert/fast-label-printering/releases">📦 All Releases</a>
+            <a href="https://github.com/jszeibert/fast-label-printering/issues">🐛 Report Issues</a>
+        </div>
+        
+        <div class="footer">
+            <p>Made with ❤️ by <a href="https://github.com/jszeibert" style="color: #1976d2;">jszeibert</a></p>
+            <p>Licensed under MIT License • Cross-browser extension for IDoit label printing</p>
+        </div>
     </div>
-    
-    <a href="https://github.com/jszeibert/fast-label-printering/releases/latest" class="download">
-        📥 Download Latest Release
-    </a>
-    
-    <h2>� Automatic Updates</h2>
-    <p>The extension will automatically check for updates. The update manifest is available at:</p>
-    <p><a href="update.json">update.json</a></p>
-    
-    <h2>🔗 Links</h2>
-    <p>
-        <a href="https://github.com/jszeibert/fast-label-printering">GitHub Repository</a> |
-        <a href="https://github.com/jszeibert/fast-label-printering/issues">Report Issues</a>
-    </p>
 </body>
 </html>

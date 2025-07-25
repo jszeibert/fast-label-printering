@@ -2,7 +2,16 @@
   "addons": {
     "fast-label-printering@jszeibert.github.io": {
       "updates": [
-              ]
+        {
+          "version": "1.0",
+          "update_link": "https://github.com/jszeibert/fast-label-printering/releases/download/v1.0/fast-label-printering-firefox-v1.0.xpi",
+          "applications": {
+            "gecko": {
+              "strict_min_version": "109.0"
+            }
+          }
+        }
+      ]
     }
   }
 }
