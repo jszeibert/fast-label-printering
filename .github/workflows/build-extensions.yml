@@ -1,0 +1,102 @@
+name: Build Extensions
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install web-ext
+      run: npm install -g web-ext
+        
+    - name: Extract version from Chrome manifest (default)
+      id: version
+      run: |
+        VERSION=$(node -p "require('./src/manifest.json').version")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Extension version: $VERSION"
+        
+    - name: Build Chrome extension (default)
+      run: |
+        mkdir -p dist
+        cd src
+        echo "Building Chrome extension..."
+        # Chrome uses the default manifest.json
+        zip -r ../dist/fast-label-printering-chrome-v${{ steps.version.outputs.version }}.zip . -x "manifest-firefox.json"
+        echo "Chrome extension built successfully"
+        
+    - name: Build Firefox extension
+      run: |
+        cd src
+        echo "Building Firefox extension..."
+        
+        # Create temporary directory for Firefox build
+        mkdir -p ../temp-firefox
+        
+        # Copy all files except manifest-firefox.json
+        cp -r * ../temp-firefox/
+        
+        # Replace manifest.json with Firefox version
+        cp manifest-firefox.json ../temp-firefox/manifest.json
+        rm ../temp-firefox/manifest-firefox.json
+        
+        # Build Firefox extension with web-ext
+        cd ../temp-firefox
+        web-ext build --overwrite-dest --artifacts-dir ../dist --filename fast-label-printering-firefox-v${{ steps.version.outputs.version }}.xpi
+        
+        # Clean up
+        cd ..
+        rm -rf temp-firefox
+        
+        echo "Firefox extension built successfully"
+        ls -la dist/
+        
+    - name: Create Pre-Release (only on push to main)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.version.outputs.version }}-pre
+        name: Pre-Release v${{ steps.version.outputs.version }}
+        body: |
+          ## 🚧 Pre-Release v${{ steps.version.outputs.version }}
+          
+          **⚠️ This is a pre-release for signing and testing purposes.**
+          
+          ### 📦 Downloads for Signing/Testing
+          - **Firefox**: `fast-label-printering-firefox-v${{ steps.version.outputs.version }}.xpi` (Ready for Mozilla signing)
+          - **Chrome**: `fast-label-printering-chrome-v${{ steps.version.outputs.version }}.zip` (For Chrome Web Store or manual installation)
+          
+          ### 🔄 Next Steps
+          1. Download Firefox `.xpi` file
+          2. Submit to Mozilla for signing
+          3. After approval, create manual release with signed version
+          
+          ---
+          *This pre-release will be deleted when the final signed release is published.*
+        files: |
+          dist/fast-label-printering-firefox-v${{ steps.version.outputs.version }}.xpi
+          dist/fast-label-printering-chrome-v${{ steps.version.outputs.version }}.zip
+        draft: false
+        prerelease: true
+        
+    - name: Upload build artifacts (for PRs and main)
+      uses: actions/upload-artifact@v3
+      with:
+        name: extensions-v${{ steps.version.outputs.version }}
+        path: |
+          dist/fast-label-printering-firefox-v${{ steps.version.outputs.version }}.xpi
+          dist/fast-label-printering-chrome-v${{ steps.version.outputs.version }}.zip
+        retention-days: 30

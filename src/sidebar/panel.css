@@ -4,6 +4,8 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  min-width: 350px; /* Ensure minimum width for Chrome popup */
+  max-width: 600px; /* Limit maximum width */
 }
 
 #header {
@@ -27,6 +29,43 @@ input, textarea, button {
   display: block;
   margin: 5px 0;
   width: 100%;
+  box-sizing: border-box;
+}
+.tabs {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+  display: flex;
+  border-bottom: 2px solid #ddd;
+}
+
+.tab-button {
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-bottom: none;
+  padding: 10px 15px;
+  cursor: pointer;
+  margin-right: 2px;
+  border-radius: 5px 5px 0 0;
+}
+
+.tab-button:hover {
+  background: #e0e0e0;
+}
+
+.tab-button.active {
+  background: white;
+  border-bottom: 2px solid white;
+  margin-bottom: -2px;
+}
+
+.tab-content {
+  display: none;
+  padding: 15px 0;
+}
+
+.tab-content[style*="block"] {
+  display: block !important;
 }
 
 .label {

@@ -1,3 +1,29 @@
+// Cross-browser API compatibility - must be at the very top
+const browserAPI = (function() {
+  if (typeof browser !== 'undefined') {
+    return browser; // Firefox
+  } else if (typeof chrome !== 'undefined') {
+    return chrome; // Chrome
+  } else {
+    console.error('No browser API available');
+    return {};
+  }
+})();
+
+// Context detection
+const isFirefox = typeof browser !== 'undefined';
+const isChrome = typeof chrome !== 'undefined' && typeof browser === 'undefined';
+const isSidebar = window.location.search.includes('sidebar') || 
+                 document.body.clientWidth > 300 ||
+                 window.name === 'sidebar';
+
+console.log('Extension context:', {
+  isFirefox,
+  isChrome,
+  isSidebar,
+  width: document.body.clientWidth
+});
+
 // --------------------------- Init log box ---------------------------
 const logBox = document.querySelector("#log");
 const logQueue = [];
@@ -20,8 +46,6 @@ function log(message) {
 
 // --------------------------- Global Settings ---------------------------
 
-  // @previewApiUrl: fixed Label size of 25x14mm
-  // -1mm in width as pos 0 is offset by that
 const settings = {
   idoitUrl: 'https://idoit.example.com',
   zplTemplate: `^XA
@@ -37,85 +61,125 @@ const settings = {
   replaceList: 'Development=Dev,Temperature=Temp.'
 };
 
-function validateJSON(input) {
+// Replace all direct browser/chrome calls with browserAPI
+
+async function loadSettings() {
   try {
-    JSON.parse(input);
-    return true;
-  } catch (e) {
-    return false;
+    // Use cross-browser storage API
+    if (browserAPI.storage && browserAPI.storage.local) {
+      const data = await browserAPI.storage.local.get([
+        'idoit-base-url', 'zpl-template', 'printer-url', 
+        'preview-api-url', 'replace-list'
+      ]);
+      
+      settings.idoitUrl = data['idoit-base-url'] || settings.idoitUrl;
+      settings.zplTemplate = data['zpl-template'] || settings.zplTemplate;
+      settings.printerUrl = data['printer-url'] || settings.printerUrl;
+      settings.previewApiUrl = data['preview-api-url'] || settings.previewApiUrl;
+      settings.replaceList = data['replace-list'] || settings.replaceList;
+    } else {
+      // Fallback to localStorage
+      settings.idoitUrl = localStorage.getItem('idoit-base-url') || settings.idoitUrl;
+      settings.zplTemplate = localStorage.getItem('zpl-template') || settings.zplTemplate;
+      settings.printerUrl = localStorage.getItem('printer-url') || settings.printerUrl;
+      settings.previewApiUrl = localStorage.getItem('preview-api-url') || settings.previewApiUrl;
+      settings.replaceList = localStorage.getItem('replace-list') || settings.replaceList;
+    }
+    
+    // Update UI elements
+    const elements = {
+      'idoit-base-url': settings.idoitUrl,
+      'zpl-template': settings.zplTemplate,
+      'printer-url': settings.printerUrl,
+      'preview-api-url': settings.previewApiUrl,
+      'replace-list': settings.replaceList
+    };
+    
+    Object.keys(elements).forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.value = elements[id];
+      }
+    });
+  } catch (error) {
+    console.error('Error loading settings:', error);
   }
 }
 
-function loadSettings() {
-  settings.idoitUrl = localStorage.getItem('idoit-base-url') || settings.idoitUrl;
-  settings.zplTemplate = localStorage.getItem('zpl-template') || settings.zplTemplate;
-  settings.printerUrl = localStorage.getItem('printer-url') || settings.printerUrl;
-  settings.previewApiUrl = localStorage.getItem('preview-api-url') || settings.previewApiUrl;
-  settings.replaceList = localStorage.getItem('replace-list') || settings.replaceList;
+async function saveSettings() {
+  try {
+    const settingsToSave = {
+      'idoit-base-url': document.getElementById('idoit-base-url')?.value || settings.idoitUrl,
+      'zpl-template': document.getElementById('zpl-template')?.value || settings.zplTemplate,
+      'printer-url': document.getElementById('printer-url')?.value || settings.printerUrl,
+      'preview-api-url': document.getElementById('preview-api-url')?.value || settings.previewApiUrl,
+      'replace-list': document.getElementById('replace-list')?.value || settings.replaceList
+    };
 
-  document.getElementById('idoit-base-url').value = settings.idoitUrl;
-  document.getElementById('zpl-template').value = settings.zplTemplate;
-  document.getElementById('printer-url').value = settings.printerUrl;
-  document.getElementById('preview-api-url').value = settings.previewApiUrl;
-  document.getElementById('replace-list').value = settings.replaceList;
-}
+    // Update global settings
+    Object.keys(settingsToSave).forEach(key => {
+      const settingKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase()).replace('-', '');
+      if (settingKey === 'idoitBaseUrl') settings.idoitUrl = settingsToSave[key];
+      else if (settingKey === 'zplTemplate') settings.zplTemplate = settingsToSave[key];
+      else if (settingKey === 'printerUrl') settings.printerUrl = settingsToSave[key];
+      else if (settingKey === 'previewApiUrl') settings.previewApiUrl = settingsToSave[key];
+      else if (settingKey === 'replaceList') settings.replaceList = settingsToSave[key];
+    });
 
-function saveSettings() {
-  settings.idoitUrl = document.getElementById('idoit-base-url').value;
-  settings.zplTemplate = document.getElementById('zpl-template').value;
-  settings.printerUrl = document.getElementById('printer-url').value;
-  settings.previewApiUrl = document.getElementById('preview-api-url').value;
-  settings.replaceList = document.getElementById('replace-list').value;
-
-  localStorage.setItem('idoit-base-url', settings.idoitUrl);
-  localStorage.setItem('zpl-template', settings.zplTemplate);
-  localStorage.setItem('printer-url', settings.printerUrl);
-  localStorage.setItem('preview-api-url', settings.previewApiUrl);
-  localStorage.setItem('replace-list', settings.replaceList);
-  log('Settings saved');
+    // Save to extension storage
+    if (browserAPI.storage && browserAPI.storage.local) {
+      await browserAPI.storage.local.set(settingsToSave);
+    } else {
+      // Fallback to localStorage
+      Object.keys(settingsToSave).forEach(key => {
+        localStorage.setItem(key, settingsToSave[key]);
+      });
+    }
+    
+    log('Settings saved successfully');
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    log('Error saving settings: ' + error.message);
+  }
 }
 
 function parseReplaceList(input) {
   return input.split(',').map(pair => pair.split('='));
 }
 
-loadSettings();
-const saveSettingsButton = document.getElementById('save-settings-button');
-saveSettingsButton.addEventListener('click', function () {
-  saveSettings();
-});
-
-// --------------------------- General UI elements ---------------------------
-// Toggle visibility of sections
-document.querySelectorAll('.tab-button').forEach(tabBtn => {
-  tabBtn.addEventListener('click', function () {
-    document.querySelectorAll('.tab-content').forEach(tabContent => {
-      tabContent.style.display = 'none';
-    });
-    document.querySelectorAll('.tab-button').forEach(btn => {
-      btn.classList.remove('active');
-    });
-    document.getElementById(tabBtn.getAttribute('data-tab')).style.display = 'block';
-    tabBtn.classList.add('active');
-  });
-});
-
-// --------------------------- retreive I-Doit Data ---------------------------
+// --------------------------- Cross-browser tab management ---------------------------
 
 let myWindowId;
 let title, url;
 let objData = [];
 
-/*
-Update the sidebar's content with the title and URL of the active tab if its an I-Doit object.
+async function getCurrentTabs() {
+  try {
+    if (isFirefox && isSidebar) {
+      // Firefox sidebar context
+      const currentWindow = await browserAPI.windows.getCurrent();
+      return await browserAPI.tabs.query({ windowId: currentWindow.id });
+    } else {
+      // Chrome popup or Firefox popup
+      return await browserAPI.tabs.query({ currentWindow: true, active: true });
+    }
+  } catch (error) {
+    console.error('Error getting tabs:', error);
+    return [];
+  }
+}
 
-1) Get the active tab in this sidebar's window.
-2) Get its title and URL.
-3) Put them in the content box.
-*/
-function updateContent() {
-  browser.tabs.query({windowId: myWindowId, active: true})
-    .then((tabs) => {
+async function updateContent() {
+  try {
+    let tabs;
+    
+    if (isFirefox && isSidebar && myWindowId) {
+      tabs = await browserAPI.tabs.query({windowId: myWindowId, active: true});
+    } else {
+      tabs = await browserAPI.tabs.query({currentWindow: true, active: true});
+    }
+    
+    if (tabs && tabs.length > 0) {
       const activeTab = tabs[0];
       title = activeTab.title;
       url = activeTab.url;
@@ -125,27 +189,21 @@ function updateContent() {
         const urlParams = new URLSearchParams(urlObj.search);
         objData['id'] = urlParams.get('objID');
 
-        // retreive the object Name and type from the title
         let titleSplit = title.split(' > ');
         objData['type'] = titleSplit[1];
         objData['name'] = titleSplit[2];
-        log(`Loaded I-Doit Obejct from aktive Tab<br\><b>ID:</b> ${objData['id']}<br\><b>Name:</b> ${objData['name']}<br\><b>Type:</b> ${objData['type']}`);
+        log(`Loaded I-Doit Object from active Tab<br/><b>ID:</b> ${objData['id']}<br/><b>Name:</b> ${objData['name']}<br/><b>Type:</b> ${objData['type']}`);
 
-        // Prefill the input fields
         prefillInputFields(objData);
       } else {
         log(`No I-DOIT Data found.`);
       }
-    });
+    }
+  } catch (error) {
+    console.error('Error updating content:', error);
+  }
 }
 
-/*
-Split the name into two lines in a semi intelligent way.
-The split can be done on ' ', '-', '_' and '.' characters.
-The characters should be kept.
-The first line should be shorter than 11 characters.
-The normal label size is 25x14mm, so the first line should be shorter than 11 characters.
-*/
 function splitName(name) {
   let line1 = '';
   let line2 = '';
@@ -166,14 +224,10 @@ function splitName(name) {
   }
   line1 = line1.trim();
   line2 = line2.trim();
-  log("Name to long, splitting into: <br\>" + [line1, line2]);
+  log("Name too long, splitting into: <br/>" + [line1, line2]);
   return [line1, line2];
 }
 
-
-/*
-Prefill the input fields with the retrieved data.
-*/
 function prefillInputFields(data) {
   document.getElementById('id').value = data['id'];
   
@@ -191,31 +245,19 @@ function prefillInputFields(data) {
   // clear the preview image
   document.getElementById('label-preview').style.backgroundImage = "url('')";
   // clear the zpl input field
-  document.getElementById('zpl-input').value = '';
+  const zplInputTextarea = document.getElementById('zpl-input-textarea');
+  if (zplInputTextarea) {
+    zplInputTextarea.value = '';
+  }
 }
 
-/*
-Update content when a new tab becomes active.
-*/
-browser.tabs.onActivated.addListener(updateContent);
-
-/*
-Update content when a new page is loaded into a tab.
-*/
-browser.tabs.onUpdated.addListener(updateContent);
-
-/*
-When the sidebar loads, get the ID of its window,
-and update its content.
-*/
-browser.windows.getCurrent({populate: true}).then((windowInfo) => {
-  myWindowId = windowInfo.id;
-  updateContent();
-});
 // --------------------------- Label preview ---------------------------
 
 function showPreview(zplData) {
-  zplInput.value = zplData;
+  const zplInputTextarea = document.getElementById('zpl-input-textarea');
+  if (zplInputTextarea) {
+    zplInputTextarea.value = zplData;
+  }
   const url = `${settings.previewApiUrl}${encodeURIComponent(zplData)}`;
   document.getElementById('label-preview').style.backgroundImage = 'url(\'' + url + '\')';
   log('ZPL Preview rendered');
@@ -234,8 +276,7 @@ function generateZPL(inputs) {
     .replace('{ID}', id)
     .replace('{LINE1}', line1)
     .replace('{LINE2}', line2)
-    .replace('{TYPE}', type)
-    .replace('{ID}', id);
+    .replace('{TYPE}', type);
 }
 
 async function printLabel(zplData) {
@@ -245,46 +286,117 @@ async function printLabel(zplData) {
       body: zplData
     });
     const result = await response.text();
-    log('Print successful:', result);
+    log('Print successful: ' + result);
   } catch (error) {
-    log('Print failed:', error);
+    log('Print failed: ' + error.message);
   }
 }
 
-// --------------------------- Label data ---------------------------
-const inputFields = [
-  document.getElementById('id'),
-  document.getElementById('line1'),
-  document.getElementById('line2'),
-  document.getElementById('type')
-];
-const previewInputButton = document.getElementById('preview-input-button');
-const printInputButton = document.getElementById('print-input-button');
+// --------------------------- Initialize ---------------------------
 
-previewInputButton.addEventListener('click', function () {
-    const zplData = generateZPL(inputFields);
-    document.getElementById('zpl-input-textarea').value = zplData;
-    showPreview(zplData);
+async function initializeExtension() {
+  try {
+    await loadSettings();
+    
+    // Setup tab listeners only in sidebar context
+    if (isSidebar && browserAPI.tabs) {
+      if (browserAPI.tabs.onActivated) {
+        browserAPI.tabs.onActivated.addListener(updateContent);
+      }
+      if (browserAPI.tabs.onUpdated) {
+        browserAPI.tabs.onUpdated.addListener(updateContent);
+      }
+      
+      // Get window ID for Firefox sidebar
+      if (isFirefox) {
+        const windowInfo = await browserAPI.windows.getCurrent({populate: true});
+        myWindowId = windowInfo.id;
+      }
+    }
+    
+    await updateContent();
+    setupEventListeners();
+    
+  } catch (error) {
+    console.error('Initialization error:', error);
+    log('Extension initialization failed: ' + error.message);
   }
-);
+}
 
-printInputButton.addEventListener('click', function () {
-    const zplData = generateZPL(inputFields);
-    printLabel(zplData);
+function setupEventListeners() {
+  // Settings
+  const saveSettingsButton = document.getElementById('save-settings-button');
+  if (saveSettingsButton) {
+    saveSettingsButton.addEventListener('click', saveSettings);
   }
-);
-  
-// --------------------------- ZPL data ---------------------------
-  
-const zplInput = document.getElementById('zpl-input-textarea');
-const previewZplButton = document.getElementById('preview-zpl-button');
-const printZplButton = document.getElementById('print-zpl-button');
-previewZplButton.addEventListener('click', function () {
-    showPreview(zplInput.value);
-  }
-);
 
-printZplButton.addEventListener('click', function () {
-    printLabel(zplInput.value);
+  // General UI elements - Tab switching
+  document.querySelectorAll('.tab-button').forEach(tabBtn => {
+    tabBtn.addEventListener('click', function () {
+      document.querySelectorAll('.tab-content').forEach(tabContent => {
+        tabContent.style.display = 'none';
+      });
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      const targetTab = document.getElementById(tabBtn.getAttribute('data-tab'));
+      if (targetTab) {
+        targetTab.style.display = 'block';
+      }
+      tabBtn.classList.add('active');
+    });
+  });
+
+  // Label data section
+  const inputFields = [
+    document.getElementById('id'),
+    document.getElementById('line1'),
+    document.getElementById('line2'),
+    document.getElementById('type')
+  ];
+
+  const previewInputButton = document.getElementById('preview-input-button');
+  const printInputButton = document.getElementById('print-input-button');
+
+  if (previewInputButton) {
+    previewInputButton.addEventListener('click', function () {
+      const zplData = generateZPL(inputFields);
+      showPreview(zplData);
+    });
   }
-);
+
+  if (printInputButton) {
+    printInputButton.addEventListener('click', function () {
+      const zplData = generateZPL(inputFields);
+      printLabel(zplData);
+    });
+  }
+
+  // ZPL data section
+  const zplInputTextarea = document.getElementById('zpl-input-textarea');
+  const previewZplButton = document.getElementById('preview-zpl-button');
+  const printZplButton = document.getElementById('print-zpl-button');
+
+  if (previewZplButton) {
+    previewZplButton.addEventListener('click', function () {
+      if (zplInputTextarea) {
+        showPreview(zplInputTextarea.value);
+      }
+    });
+  }
+
+  if (printZplButton) {
+    printZplButton.addEventListener('click', function () {
+      if (zplInputTextarea) {
+        printLabel(zplInputTextarea.value);
+      }
+    });
+  }
+}
+
+// Initialize when DOM is loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeExtension);
+} else {
+  initializeExtension();
+}
