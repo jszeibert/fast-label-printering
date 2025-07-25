@@ -93,7 +93,7 @@ jobs:
         prerelease: true
         
     - name: Upload build artifacts (for PRs and main)
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: extensions-v${{ steps.version.outputs.version }}
         path: |
