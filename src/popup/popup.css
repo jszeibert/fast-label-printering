@@ -19,17 +19,6 @@ body {
   min-height: 100%;
 }
 
-/* Header */
-h3 {
-  margin: 0;
-  padding: 15px;
-  font-size: 1.3em;
-  color: #007acc;
-  text-align: center;
-  background: white;
-  border-bottom: 2px solid #007acc;
-}
-
 /* Header mit Options Button */
 .popup-header {
   display: flex;
@@ -280,4 +269,45 @@ h3 {
 
 .not-idoit-message .options-link:hover {
   background: #005a9e;
+}
+
+/* Settings Required Message */
+.settings-required-message {
+  text-align: center;
+  padding: 20px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  margin: 10px;
+}
+
+.settings-required-message h3 {
+  color: #856404;
+  margin-bottom: 15px;
+}
+
+.settings-required-message ul {
+  text-align: left;
+  margin: 15px 0;
+  padding-left: 20px;
+}
+
+.settings-required-message li {
+  color: #856404;
+  margin: 5px 0;
+}
+
+.settings-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 15px;
+}
+
+.settings-btn:hover {
+  background-color: #0056b3;
 }

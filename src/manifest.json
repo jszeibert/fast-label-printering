@@ -12,11 +12,14 @@
   "permissions": [
     "storage",
     "tabs",
-    "activeTab"
+    "activeTab",
+    "webRequest"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self';"
+  },
   "host_permissions": [
-    "http://*/*",
-    "https://*/*"
+    "<all_urls>"
   ],
   "action": {
     "default_icon": "icons/label.png",

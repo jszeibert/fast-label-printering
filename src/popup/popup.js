@@ -1,26 +1,10 @@
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
-// Default settings
-const defaultSettings = {
-  idoitUrl: 'https://idoit.fast-lta.de',
-  zplTemplate: `^XA
-^CF0,27
-^FO0,10^BQN,2,4^FDQA,{URL}/objID={ID}^FS
-^FO145,25^FD{LINE1}^FS
-^FO145,60^FD{LINE2}^FS
-^FO145,100^A0N,20,20^FD{TYPE}^FS
-^FO145,130^A0N,27,27^FD{ID}^FS
-^XZ`,
-  previewApiUrl: 'http://api.labelary.com/v1/printers/12dpmm/labels/0.94x0.55/0/',
-  replaceList: 'Development=Dev,Temperature=Temp.',
-  printerUrl: 'http://localhost:631/pstprnt'
-};
-
 let currentSettings = {};
 let currentZplData = '';
 
-// Load settings from storage - using browserAPI
+// Load settings from storage - NO DEFAULTS HERE
 async function loadSettings() {
   const result = await browserAPI.storage.local.get([
     'idoit-base-url',
@@ -31,14 +15,53 @@ async function loadSettings() {
   ]);
   
   currentSettings = {
-    idoitUrl: result['idoit-base-url'] || defaultSettings.idoitUrl,
-    zplTemplate: result['zpl-template'] || defaultSettings.zplTemplate,
-    previewApiUrl: result['preview-api-url'] || defaultSettings.previewApiUrl,
-    replaceList: result['replace-list'] || defaultSettings.replaceList,
-    printerUrl: result['printer-url'] || defaultSettings.printerUrl
+    idoitUrl: result['idoit-base-url'] || '',
+    zplTemplate: result['zpl-template'] || '',
+    previewApiUrl: result['preview-api-url'] || '',
+    replaceList: result['replace-list'] || '',
+    printerUrl: result['printer-url'] || ''
   };
   
   return currentSettings;
+}
+
+// Check if essential settings are configured
+function checkRequiredSettings() {
+  const missing = [];
+  
+  if (!currentSettings.idoitUrl) missing.push('I-Doit URL');
+  if (!currentSettings.printerUrl) missing.push('Printer URL');
+  if (!currentSettings.previewApiUrl) missing.push('Preview API URL');
+  if (!currentSettings.zplTemplate) missing.push('ZPL Template');
+  
+  return missing;
+}
+
+// Show settings required message
+function showSettingsRequiredMessage(missingSettings) {
+  const container = document.querySelector('.container');
+  if (container) {
+    container.innerHTML = `
+      <div class="settings-required-message">
+        <h3>⚙️ Settings Required</h3>
+        <p><strong>Please configure the following settings first:</strong></p>
+        <ul>
+          ${missingSettings.map(setting => `<li>${setting}</li>`).join('')}
+        </ul>
+        <p><em>The extension needs these settings to work properly.</em></p>
+        <button id="open-settings-btn" class="settings-btn">Open Settings</button>
+      </div>
+    `;
+    
+    // Add event listener for settings button
+    const settingsBtn = document.getElementById('open-settings-btn');
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        openOptionsPage();
+      });
+    }
+  }
 }
 
 // Parse replace list
@@ -99,40 +122,48 @@ function generateZPL(data, template, idoitUrl) {
 
 // Get current form data
 function getFormData() {
+  const idElement = document.getElementById('id');
+  const line1Element = document.getElementById('line1');
+  const line2Element = document.getElementById('line2');
+  const typeElement = document.getElementById('type');
+  
   return {
-    id: document.getElementById('id').value,
-    line1: document.getElementById('line1').value,
-    line2: document.getElementById('line2').value,
-    type: document.getElementById('type').value
+    id: idElement ? idElement.value : '',
+    line1: line1Element ? line1Element.value : '',
+    line2: line2Element ? line2Element.value : '',
+    type: typeElement ? typeElement.value : ''
   };
 }
 
-// Fill form with data
-function fillForm(data) {
-  document.getElementById('id').value = data.id || '';
-  document.getElementById('line1').value = data.line1 || '';
-  document.getElementById('line2').value = data.line2 || '';
-  document.getElementById('type').value = data.type || '';
+// Populate form with data
+function populateForm(data) {
+  console.log('Populating form with data:', data);
+  
+  const idElement = document.getElementById('id');
+  const typeElement = document.getElementById('type');
+  const line1Element = document.getElementById('line1');
+  const line2Element = document.getElementById('line2');
+  
+  if (idElement) idElement.value = data.id || '';
+  if (typeElement) typeElement.value = data.type || '';
+  if (line1Element) line1Element.value = data.line1 || '';
+  if (line2Element) line2Element.value = data.line2 || '';
 }
 
-// Open options page - improved cross-browser compatibility
+// Open options page
 function openOptionsPage() {
   try {
-    // Method 1: Try runtime.openOptionsPage (most reliable)
     if (browserAPI.runtime && browserAPI.runtime.openOptionsPage) {
       browserAPI.runtime.openOptionsPage().then(() => {
         window.close();
       }).catch(() => {
-        // Fallback if openOptionsPage fails
         openOptionsTabFallback();
       });
     } else {
-      // Method 2: Direct tab creation fallback
       openOptionsTabFallback();
     }
   } catch (error) {
     console.error('Error opening options:', error);
-    // Last resort fallback
     openOptionsTabFallback();
   }
 }
@@ -145,7 +176,6 @@ function openOptionsTabFallback() {
       window.close();
     }).catch((error) => {
       console.error('Failed to open options tab:', error);
-      // If all else fails, try direct window.open
       window.open(optionsUrl, '_blank');
       window.close();
     });
@@ -154,26 +184,27 @@ function openOptionsTabFallback() {
   }
 }
 
-// Show not I-Doit message with working options link
+// Show not I-Doit message
 function showNotIdoitMessage() {
   const container = document.querySelector('.container');
-  container.innerHTML = `
-    <div class="not-idoit-message">
-      <h3>🏷️ Fast Label Printer</h3>
-      <p><strong>This extension works only on I-Doit object pages.</strong></p>
-      <p>Please navigate to an I-Doit object page that contains <code>objID=</code> in the URL.</p>
-      <p><em>You may need to configure your I-Doit URL in the settings.</em></p>
-      <button id="options-link-inline" class="options-link">⚙️ Open Settings</button>
-    </div>
-  `;
-  
-  // Add event listener for inline options link
-  const optionsLinkInline = document.getElementById('options-link-inline');
-  if (optionsLinkInline) {
-    optionsLinkInline.addEventListener('click', function(e) {
-      e.preventDefault();
-      openOptionsPage();
-    });
+  if (container) {
+    container.innerHTML = `
+      <div class="not-idoit-message">
+        <h3>🏷️ Fast Label Printer</h3>
+        <p><strong>This extension works only on I-Doit object pages.</strong></p>
+        <p>Please navigate to an I-Doit object page that contains <code>objID=</code> in the URL.</p>
+        <p><em>Current URL does not match your configured I-Doit URL.</em></p>
+        <button id="options-link-inline" class="options-link">⚙️ Check Settings</button>
+      </div>
+    `;
+    
+    const optionsLinkInline = document.getElementById('options-link-inline');
+    if (optionsLinkInline) {
+      optionsLinkInline.addEventListener('click', function(e) {
+        e.preventDefault();
+        openOptionsPage();
+      });
+    }
   }
 }
 
@@ -193,37 +224,34 @@ function showPreview(zplData) {
   const url = `${currentSettings.previewApiUrl}${encodeURIComponent(zplData)}`;
   const previewElement = document.getElementById('label-preview');
   
-  // Create new image to test if URL loads
-  const img = new Image();
-  img.onload = function() {
-    previewElement.style.backgroundImage = `url('${url}')`;
-    previewElement.classList.add('has-preview');
-    updateStatus('Preview ready - click print to send to printer', 'success');
-    
-    // Enable print button
-    const printBtn = document.getElementById('print-btn');
-    if (printBtn) printBtn.disabled = false;
-  };
-  img.onerror = function() {
-    updateStatus('Preview generation failed - check your settings', 'error');
-    const printBtn = document.getElementById('print-btn');
-    if (printBtn) printBtn.disabled = true;
-  };
-  img.src = url;
+  if (previewElement) {
+    const img = new Image();
+    img.onload = function() {
+      previewElement.style.backgroundImage = `url('${url}')`;
+      previewElement.classList.add('has-preview');
+      updateStatus('Preview ready - click print to send to printer', 'success');
+      
+      const printBtn = document.getElementById('print-btn');
+      if (printBtn) printBtn.disabled = false;
+    };
+    img.onerror = function() {
+      updateStatus('Preview generation failed - check your settings', 'error');
+      const printBtn = document.getElementById('print-btn');
+      if (printBtn) printBtn.disabled = true;
+    };
+    img.src = url;
+  }
 }
 
 // Update preview with current form data
 function updatePreview() {
   const formData = getFormData();
-  
-  // Apply replacement logic to type when updating preview
   formData.type = applyReplaceList(formData.type, currentSettings.replaceList);
-  
   currentZplData = generateZPL(formData, currentSettings.zplTemplate, currentSettings.idoitUrl);
   showPreview(currentZplData);
 }
 
-// Print label
+// Print function
 async function printLabel() {
   if (!currentZplData) {
     updateStatus('No label data to print', 'error');
@@ -235,7 +263,10 @@ async function printLabel() {
   try {
     const response = await fetch(currentSettings.printerUrl, {
       method: 'POST',
-      body: currentZplData
+      body: currentZplData,
+      headers: {
+        'Content-Type': 'application/x-zpl'
+      }
     });
     
     if (response.ok) {
@@ -248,16 +279,33 @@ async function printLabel() {
   }
 }
 
-// Get current tab data and initialize
+// Initialize popup
 async function initializePopup() {
   try {
+    console.log('Initializing popup...');
     await loadSettings();
+    console.log('Settings loaded:', currentSettings);
     
-    // Use browserAPI instead of chrome
+    // Check if required settings are configured
+    const missingSettings = checkRequiredSettings();
+    if (missingSettings.length > 0) {
+      console.log('Missing required settings:', missingSettings);
+      showSettingsRequiredMessage(missingSettings);
+      return;
+    }
+    
     const tabs = await browserAPI.tabs.query({active: true, currentWindow: true});
     const activeTab = tabs[0];
+    
+    if (!activeTab) {
+      console.error('No active tab found');
+      showNotIdoitMessage();
+      return;
+    }
+    
     const title = activeTab.title;
     const url = activeTab.url;
+    console.log('Active tab:', { title, url });
 
     // Check if this is an I-Doit page with objID
     if (url.startsWith(currentSettings.idoitUrl) && url.includes('objID')) {
@@ -277,25 +325,28 @@ async function initializePopup() {
       const [line1, line2] = splitName(name);
 
       const labelData = { id, line1, line2, type };
+      console.log('Extracted label data:', labelData);
       
       // Fill form with extracted data
-      fillForm(labelData);
+      populateForm(labelData);
       
       // Generate initial preview
       updatePreview();
       
     } else {
-      // Not an I-Doit page, show message
+      console.log('Not an I-Doit page');
       showNotIdoitMessage();
     }
   } catch (error) {
-    showNotIdoitMessage();
     console.error('Popup initialization error:', error);
+    showNotIdoitMessage();
   }
 }
 
 // Initialize when popup loads
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM loaded, starting initialization...');
+  
   initializePopup();
   
   // Add event listeners
@@ -319,4 +370,6 @@ document.addEventListener('DOMContentLoaded', function() {
       openOptionsPage();
     });
   }
+  
+  console.log('Event listeners added');
 });

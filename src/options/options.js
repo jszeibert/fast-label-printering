@@ -1,7 +1,7 @@
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
-// Default settings
+// Default settings - ONLY HERE!
 const defaultSettings = {
   idoitUrl: 'https://idoit.fast-lta.de',
   zplTemplate: `^XA
@@ -14,10 +14,10 @@ const defaultSettings = {
 ^XZ`,
   previewApiUrl: 'http://api.labelary.com/v1/printers/12dpmm/labels/0.94x0.55/0/',
   replaceList: 'Development=Dev,Temperature=Temp.',
-  printerUrl: 'http://localhost:631/pstprnt'
+  printerUrl: 'https://172.20.4.20/pstprnt'
 };
 
-// Load settings - using browserAPI
+// Load settings
 async function loadSettings() {
   const result = await browserAPI.storage.local.get([
     'idoit-base-url',
@@ -27,6 +27,7 @@ async function loadSettings() {
     'printer-url'
   ]);
   
+  // Use defaults if not set
   document.getElementById('idoit-base-url').value = result['idoit-base-url'] || defaultSettings.idoitUrl;
   document.getElementById('zpl-template').value = result['zpl-template'] || defaultSettings.zplTemplate;
   document.getElementById('preview-api-url').value = result['preview-api-url'] || defaultSettings.previewApiUrl;
@@ -34,7 +35,7 @@ async function loadSettings() {
   document.getElementById('printer-url').value = result['printer-url'] || defaultSettings.printerUrl;
 }
 
-// Save settings - using browserAPI
+// Save settings
 async function saveSettings() {
   const settings = {
     'idoit-base-url': document.getElementById('idoit-base-url').value,
@@ -105,17 +106,26 @@ async function testConnection() {
   }
 }
 
+// Simple printer test
 async function testPrinter() {
   const url = document.getElementById('printer-url').value;
   const resultsElement = document.getElementById('test-results');
   
+  if (!url) {
+    resultsElement.textContent = '❌ Please enter a printer URL first';
+    return;
+  }
+  
   resultsElement.textContent = 'Testing printer connection...';
+  const testZpl = '^XA^FO20,20^A0N,25,25^FDTest Label^FS^XZ';
   
   try {
-    const testZpl = '^XA^FO20,20^A0N,25,25^FDTest Label^FS^XZ';
     const response = await fetch(url, {
       method: 'POST',
-      body: testZpl
+      body: testZpl,
+      headers: {
+        'Content-Type': 'application/x-zpl'
+      }
     });
     
     if (response.ok) {
