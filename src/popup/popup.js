@@ -1,156 +1,178 @@
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
-let currentSettings = {};
-let currentZplData = '';
-
-// Load settings from storage - NO DEFAULTS HERE
-async function loadSettings() {
-  const result = await browserAPI.storage.local.get([
-    'idoit-base-url',
-    'zpl-template', 
-    'preview-api-url',
-    'replace-list',
-    'printer-url'
-  ]);
-  
-  currentSettings = {
-    idoitUrl: result['idoit-base-url'] || '',
-    zplTemplate: result['zpl-template'] || '',
-    previewApiUrl: result['preview-api-url'] || '',
-    replaceList: result['replace-list'] || '',
-    printerUrl: result['printer-url'] || ''
-  };
-  
-  return currentSettings;
-}
-
-// Check if essential settings are configured
-function checkRequiredSettings() {
-  const missing = [];
-  
-  if (!currentSettings.idoitUrl) missing.push('I-Doit URL');
-  if (!currentSettings.printerUrl) missing.push('Printer URL');
-  if (!currentSettings.previewApiUrl) missing.push('Preview API URL');
-  if (!currentSettings.zplTemplate) missing.push('ZPL Template');
-  
-  return missing;
-}
-
-// Show settings required message
-function showSettingsRequiredMessage(missingSettings) {
-  const container = document.querySelector('.container');
-  if (container) {
-    container.innerHTML = `
-      <div class="settings-required-message">
-        <h3>⚙️ Settings Required</h3>
-        <p><strong>Please configure the following settings first:</strong></p>
-        <ul>
-          ${missingSettings.map(setting => `<li>${setting}</li>`).join('')}
-        </ul>
-        <p><em>The extension needs these settings to work properly.</em></p>
-        <button id="open-settings-btn" class="settings-btn">Open Settings</button>
-      </div>
-    `;
+// Utility Classes
+class LabelProcessor {
+  static splitName(name, maxLength = 11) {
+    if (!name || name.length <= maxLength) return [name || '', ''];
     
-    // Add event listener for settings button
-    const settingsBtn = document.getElementById('open-settings-btn');
-    if (settingsBtn) {
-      settingsBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        openOptionsPage();
-      });
+    const breakPoints = [' ', '-', '_', '.'];
+    let splitIndex = -1;
+    
+    for (const char of breakPoints) {
+      const idx = name.lastIndexOf(char, maxLength);
+      if (idx > splitIndex) splitIndex = idx;
+    }
+    
+    if (splitIndex === -1) splitIndex = maxLength;
+    
+    return [
+      name.substring(0, splitIndex).trim(),
+      name.substring(splitIndex).trim()
+    ];
+  }
+
+  static applyReplacements(text, replaceList) {
+    if (!text || !replaceList) return text;
+    
+    return replaceList.split(',')
+      .map(pair => pair.split('='))
+      .filter(parts => parts.length === 2)
+      .reduce((result, [search, replace]) => 
+        result.replace(new RegExp(search.trim(), 'g'), replace.trim()), text
+      );
+  }
+
+  static generateZPL(data, template, idoitUrl) {
+    const replacements = { 
+      '{URL}': idoitUrl, 
+      ...Object.fromEntries(
+        Object.entries(data).map(([key, val]) => [`{${key.toUpperCase()}}`, val || ''])
+      )
+    };
+    
+    return Object.entries(replacements).reduce(
+      (zpl, [placeholder, value]) => zpl.replace(new RegExp(placeholder, 'g'), value),
+      template
+    );
+  }
+}
+
+class PopupUI {
+  constructor() {
+    this.elements = null;
+  }
+
+  init() {
+    this.elements = {
+      container: document.querySelector('.container'),
+      mainContent: document.getElementById('main-content'),
+      status: document.getElementById('status'),
+      preview: document.getElementById('label-preview'),
+      printBtn: document.getElementById('print-btn'),
+      updateBtn: document.getElementById('update-preview-btn'),
+      optionsBtn: document.getElementById('options-btn'),
+      inputs: {
+        id: document.getElementById('id'),
+        type: document.getElementById('type'),
+        line1: document.getElementById('line1'),
+        line2: document.getElementById('line2')
+      }
+    };
+  }
+
+  updateStatus(message, type = 'info') {
+    if (this.elements?.status) {
+      this.elements.status.textContent = message;
+      this.elements.status.className = `status ${type}`;
+    }
+  }
+
+  getFormData() {
+    if (!this.elements) return {};
+    
+    return {
+      id: this.elements.inputs.id?.value || '',
+      line1: this.elements.inputs.line1?.value || '',
+      line2: this.elements.inputs.line2?.value || '',
+      type: this.elements.inputs.type?.value || ''
+    };
+  }
+
+  populateForm(data) {
+    if (!this.elements) return;
+    
+    Object.entries(data).forEach(([key, value]) => {
+      if (this.elements.inputs[key]) {
+        this.elements.inputs[key].value = value || '';
+      }
+    });
+  }
+}
+
+class PreviewManager {
+  static show(zplData, previewApiUrl, ui) {
+    ui.updateStatus('Generating preview...', 'loading');
+    
+    const url = `${previewApiUrl}${encodeURIComponent(zplData)}`;
+    const previewElement = ui.elements?.preview;
+    
+    if (previewElement) {
+      const img = new Image();
+      img.onload = function() {
+        previewElement.style.backgroundImage = `url('${url}')`;
+        previewElement.classList.add('has-preview');
+        ui.updateStatus('Preview ready - click print to send to printer', 'success');
+        
+        const printBtn = ui.elements?.printBtn;
+        if (printBtn) printBtn.disabled = false;
+      };
+      img.onerror = function() {
+        ui.updateStatus('Preview generation failed - check your settings', 'error');
+        const printBtn = ui.elements?.printBtn;
+        if (printBtn) printBtn.disabled = true;
+      };
+      img.src = url;
     }
   }
 }
 
-// Parse replace list
-function parseReplaceList(input) {
-  if (!input || input.trim() === '') return [];
-  return input.split(',').map(pair => {
-    const parts = pair.split('=');
-    return parts.length === 2 ? [parts[0].trim(), parts[1].trim()] : null;
-  }).filter(pair => pair !== null);
-}
-
-// Apply replace list to text
-function applyReplaceList(text, replaceList) {
-  if (!text || !replaceList) return text;
-  
-  const replacements = parseReplaceList(replaceList);
-  let result = text;
-  
-  for (const [search, replace] of replacements) {
-    result = result.replace(new RegExp(search, 'g'), replace);
-  }
-  
-  return result;
-}
-
-// Split name intelligently
-function splitName(name) {
-  if (!name || name.length <= 11) {
-    return [name || '', ''];
-  }
-
-  let splitIndex = Math.max(
-    name.lastIndexOf(' ', 11),
-    name.lastIndexOf('-', 10),
-    name.lastIndexOf('_', 10),
-    name.lastIndexOf('.', 11)
-  );
-
-  if (splitIndex === -1) {
-    splitIndex = 11;
-  }
-
-  const line1 = name.substring(0, splitIndex).trim();
-  const line2 = name.substring(splitIndex).trim();
-
-  return [line1, line2];
-}
-
-// Generate ZPL code
-function generateZPL(data, template, idoitUrl) {
-  return template
-    .replace('{URL}', idoitUrl)
-    .replace(/{ID}/g, data.id || '')
-    .replace('{LINE1}', data.line1 || '')
-    .replace('{LINE2}', data.line2 || '')
-    .replace('{TYPE}', data.type || '');
-}
-
-// Get current form data
-function getFormData() {
-  const idElement = document.getElementById('id');
-  const line1Element = document.getElementById('line1');
-  const line2Element = document.getElementById('line2');
-  const typeElement = document.getElementById('type');
-  
-  return {
-    id: idElement ? idElement.value : '',
-    line1: line1Element ? line1Element.value : '',
-    line2: line2Element ? line2Element.value : '',
-    type: typeElement ? typeElement.value : ''
+class SettingsManager {
+  static REQUIRED_KEYS = ['idoitUrl', 'printerUrl', 'previewApiUrl', 'zplTemplate'];
+  static STORAGE_MAP = {
+    idoitUrl: 'idoit-base-url',
+    zplTemplate: 'zpl-template',
+    previewApiUrl: 'preview-api-url',
+    replaceList: 'replace-list',  
+    printerUrl: 'printer-url'
   };
+
+  static async load() {
+    const storageKeys = Object.values(this.STORAGE_MAP);
+    const result = await browserAPI.storage.local.get(storageKeys);
+    
+    return Object.fromEntries(
+      Object.entries(this.STORAGE_MAP).map(([key, storageKey]) => 
+        [key, result[storageKey] || '']
+      )
+    );
+  }
+
+  static checkRequired(settings) {
+    return this.REQUIRED_KEYS.filter(key => !settings[key]);
+  }
 }
 
-// Populate form with data
-function populateForm(data) {
-  console.log('Populating form with data:', data);
+// Template Functions
+function showTemplate(templateId) {
+  const template = document.getElementById(templateId);
+  const container = document.querySelector('.container');
   
-  const idElement = document.getElementById('id');
-  const typeElement = document.getElementById('type');
-  const line1Element = document.getElementById('line1');
-  const line2Element = document.getElementById('line2');
-  
-  if (idElement) idElement.value = data.id || '';
-  if (typeElement) typeElement.value = data.type || '';
-  if (line1Element) line1Element.value = data.line1 || '';
-  if (line2Element) line2Element.value = data.line2 || '';
+  if (template && container) {
+    const clone = template.content.cloneNode(true);
+    container.innerHTML = '';
+    container.appendChild(clone);
+    
+    // Bind events for template buttons
+    if (templateId === 'settings-required-template') {
+      document.getElementById('open-settings-btn')?.addEventListener('click', openOptionsPage);
+    } else if (templateId === 'not-idoit-template') {
+      document.getElementById('options-link-inline')?.addEventListener('click', openOptionsPage);
+    }
+  }
 }
 
-// Open options page
+// Options Page Functions
 function openOptionsPage() {
   try {
     if (browserAPI.runtime && browserAPI.runtime.openOptionsPage) {
@@ -168,7 +190,6 @@ function openOptionsPage() {
   }
 }
 
-// Fallback method to open options in new tab
 function openOptionsTabFallback() {
   try {
     const optionsUrl = browserAPI.runtime.getURL('options/options.html');
@@ -184,192 +205,106 @@ function openOptionsTabFallback() {
   }
 }
 
-// Show not I-Doit message
-function showNotIdoitMessage() {
-  const container = document.querySelector('.container');
-  if (container) {
-    container.innerHTML = `
-      <div class="not-idoit-message">
-        <h3>🏷️ Fast Label Printer</h3>
-        <p><strong>This extension works only on I-Doit object pages.</strong></p>
-        <p>Please navigate to an I-Doit object page that contains <code>objID=</code> in the URL.</p>
-        <p><em>Current URL does not match your configured I-Doit URL.</em></p>
-        <button id="options-link-inline" class="options-link">⚙️ Check Settings</button>
-      </div>
-    `;
+// Main PopupManager
+class PopupManager {
+  constructor() {
+    this.settings = {};
+    this.zplData = '';
+    this.ui = new PopupUI();
+  }
+
+  async initialize() {
+    this.ui.init();
+    this.settings = await SettingsManager.load();
     
-    const optionsLinkInline = document.getElementById('options-link-inline');
-    if (optionsLinkInline) {
-      optionsLinkInline.addEventListener('click', function(e) {
-        e.preventDefault();
-        openOptionsPage();
-      });
+    const missing = SettingsManager.checkRequired(this.settings);
+    if (missing.length > 0) {
+      return showTemplate('settings-required-template');
     }
-  }
-}
-
-// Update status message
-function updateStatus(message, type = 'info') {
-  const statusElement = document.getElementById('status');
-  if (statusElement) {
-    statusElement.textContent = message;
-    statusElement.className = `status ${type}`;
-  }
-}
-
-// Show preview
-function showPreview(zplData) {
-  updateStatus('Generating preview...', 'loading');
-  
-  const url = `${currentSettings.previewApiUrl}${encodeURIComponent(zplData)}`;
-  const previewElement = document.getElementById('label-preview');
-  
-  if (previewElement) {
-    const img = new Image();
-    img.onload = function() {
-      previewElement.style.backgroundImage = `url('${url}')`;
-      previewElement.classList.add('has-preview');
-      updateStatus('Preview ready - click print to send to printer', 'success');
-      
-      const printBtn = document.getElementById('print-btn');
-      if (printBtn) printBtn.disabled = false;
-    };
-    img.onerror = function() {
-      updateStatus('Preview generation failed - check your settings', 'error');
-      const printBtn = document.getElementById('print-btn');
-      if (printBtn) printBtn.disabled = true;
-    };
-    img.src = url;
-  }
-}
-
-// Update preview with current form data
-function updatePreview() {
-  const formData = getFormData();
-  formData.type = applyReplaceList(formData.type, currentSettings.replaceList);
-  currentZplData = generateZPL(formData, currentSettings.zplTemplate, currentSettings.idoitUrl);
-  showPreview(currentZplData);
-}
-
-// Print function
-async function printLabel() {
-  if (!currentZplData) {
-    updateStatus('No label data to print', 'error');
-    return;
-  }
-
-  updateStatus('Printing...', 'loading');
-  
-  try {
-    const response = await fetch(currentSettings.printerUrl, {
-      method: 'POST',
-      body: currentZplData,
-      headers: {
-        'Content-Type': 'application/x-zpl'
-      }
-    });
     
-    if (response.ok) {
-      updateStatus('Print sent successfully', 'success');
+    const tab = await this.getCurrentTab();
+    if (!tab) {
+      return showTemplate('not-idoit-template');
+    }
+    
+    if (this.isIdoitPage(tab.url)) {
+      this.processIdoitPage(tab);
     } else {
-      updateStatus('Print failed: ' + response.statusText, 'error');
+      showTemplate('not-idoit-template');
     }
-  } catch (error) {
-    updateStatus('Print failed: ' + error.message, 'error');
   }
-}
 
-// Initialize popup
-async function initializePopup() {
-  try {
-    console.log('Initializing popup...');
-    await loadSettings();
-    console.log('Settings loaded:', currentSettings);
-    
-    // Check if required settings are configured
-    const missingSettings = checkRequiredSettings();
-    if (missingSettings.length > 0) {
-      console.log('Missing required settings:', missingSettings);
-      showSettingsRequiredMessage(missingSettings);
-      return;
-    }
-    
+  async getCurrentTab() {
     const tabs = await browserAPI.tabs.query({active: true, currentWindow: true});
-    const activeTab = tabs[0];
+    return tabs[0];
+  }
+
+  isIdoitPage(url) {
+    return url.startsWith(this.settings.idoitUrl) && url.includes('objID');
+  }
+
+  processIdoitPage(tab) {
+    const urlParams = new URLSearchParams(new URL(tab.url).search);
+    const titleParts = tab.title.split(' > ');
     
-    if (!activeTab) {
-      console.error('No active tab found');
-      showNotIdoitMessage();
-      return;
+    const [line1, line2] = LabelProcessor.splitName(titleParts[2] || '');
+    
+    const labelData = {
+      id: urlParams.get('objID'),
+      type: LabelProcessor.applyReplacements(titleParts[1] || '', this.settings.replaceList),
+      line1,
+      line2
+    };
+    
+    this.ui.populateForm(labelData);
+    this.updatePreview();
+    this.bindEvents();
+  }
+
+  updatePreview() {
+    const formData = this.ui.getFormData();
+    formData.type = LabelProcessor.applyReplacements(formData.type, this.settings.replaceList);
+    this.zplData = LabelProcessor.generateZPL(formData, this.settings.zplTemplate, this.settings.idoitUrl);
+    PreviewManager.show(this.zplData, this.settings.previewApiUrl, this.ui);
+  }
+
+  bindEvents() {
+    const handlers = {
+      'update-preview-btn': () => this.updatePreview(),
+      'print-btn': () => this.print(),
+      'options-btn': () => openOptionsPage()
+    };
+    
+    Object.entries(handlers).forEach(([id, handler]) => {
+      document.getElementById(id)?.addEventListener('click', handler);
+    });
+  }
+
+  async print() {
+    if (!this.zplData) {
+      return this.ui.updateStatus('No label data to print', 'error');
     }
     
-    const title = activeTab.title;
-    const url = activeTab.url;
-    console.log('Active tab:', { title, url });
-
-    // Check if this is an I-Doit page with objID
-    if (url.startsWith(currentSettings.idoitUrl) && url.includes('objID')) {
-      const urlObj = new URL(url);
-      const urlParams = new URLSearchParams(urlObj.search);
-      const id = urlParams.get('objID');
-
-      // Extract name and type from title
-      const titleSplit = title.split(' > ');
-      let type = titleSplit[1] || '';
-      const name = titleSplit[2] || '';
-
-      // Apply replace list to type
-      type = applyReplaceList(type, currentSettings.replaceList);
-
-      // Split name into two lines
-      const [line1, line2] = splitName(name);
-
-      const labelData = { id, line1, line2, type };
-      console.log('Extracted label data:', labelData);
+    this.ui.updateStatus('Printing...', 'loading');
+    try {
+      const response = await fetch(this.settings.printerUrl, {
+        method: 'POST', 
+        body: this.zplData, 
+        headers: {'Content-Type': 'application/x-zpl'}
+      });
       
-      // Fill form with extracted data
-      populateForm(labelData);
-      
-      // Generate initial preview
-      updatePreview();
-      
-    } else {
-      console.log('Not an I-Doit page');
-      showNotIdoitMessage();
+      this.ui.updateStatus(
+        response.ok ? 'Print sent successfully' : `Print failed: ${response.statusText}`,
+        response.ok ? 'success' : 'error'
+      );
+    } catch (error) {
+      this.ui.updateStatus(`Print failed: ${error.message}`, 'error');
     }
-  } catch (error) {
-    console.error('Popup initialization error:', error);
-    showNotIdoitMessage();
   }
 }
 
-// Initialize when popup loads
+// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM loaded, starting initialization...');
-  
-  initializePopup();
-  
-  // Add event listeners
-  const updateBtn = document.getElementById('update-preview-btn');
-  const printBtn = document.getElementById('print-btn');
-  const optionsBtn = document.getElementById('options-btn');
-  
-  if (updateBtn) {
-    updateBtn.addEventListener('click', updatePreview);
-  }
-  
-  if (printBtn) {
-    printBtn.addEventListener('click', printLabel);
-    printBtn.disabled = true; // Initially disable
-  }
-  
-  if (optionsBtn) {
-    optionsBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      openOptionsPage();
-    });
-  }
-  
-  console.log('Event listeners added');
+  const popupManager = new PopupManager();
+  popupManager.initialize();
 });
