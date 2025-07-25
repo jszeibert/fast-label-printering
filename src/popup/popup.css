@@ -1,0 +1,283 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 380px;
+  min-height: 450px;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.container {
+  padding: 0;
+  background: white;
+  min-height: 100%;
+}
+
+/* Header */
+h3 {
+  margin: 0;
+  padding: 15px;
+  font-size: 1.3em;
+  color: #007acc;
+  text-align: center;
+  background: white;
+  border-bottom: 2px solid #007acc;
+}
+
+/* Header mit Options Button */
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px;
+  background: white;
+  border-bottom: 2px solid #007acc;
+  position: relative;
+}
+
+.popup-header h3 {
+  margin: 0;
+  padding: 0;
+  font-size: 1.3em;
+  color: #007acc;
+  flex: 1;
+  text-align: center;
+  border: none;
+}
+
+.options-btn {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  color: #666;
+  transition: background-color 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.options-btn:hover {
+  background: #f0f0f0;
+  color: #007acc;
+}
+
+.options-btn:active {
+  background: #e0e0e0;
+}
+
+/* Preview container - fixed size for 25x14mm label */
+.preview-container {
+  width: 300px;
+  height: 167px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  background-color: #fff;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  margin: 15px auto;
+  position: relative;
+  display: block;
+}
+
+.preview-container::before {
+  content: "Preview will appear here";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #999;
+  font-size: 12px;
+  pointer-events: none;
+  text-align: center;
+}
+
+.preview-container.has-preview::before {
+  display: none;
+}
+
+/* Button group */
+.button-group {
+  display: flex;
+  justify-content: center;
+  padding: 0 20px 15px 20px;
+}
+
+.print-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  background: #28a745;
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 120px;
+  transition: all 0.3s;
+}
+
+.print-btn:hover {
+  background: #218838;
+}
+
+.print-btn:active {
+  background: #1e7e34;
+}
+
+.print-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Compact form styling */
+.info-form {
+  background: #fafafa;
+  padding: 15px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.form-row:last-of-type {
+  margin-bottom: 15px;
+}
+
+.input-group {
+  flex: 1;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 3px;
+  font-weight: 600;
+  color: #555;
+  font-size: 11px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  background: white;
+  transition: border-color 0.3s;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #007acc;
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.1);
+}
+
+/* Update button */
+.update-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  background: #007acc;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.update-btn:hover {
+  background: #005a9e;
+}
+
+.update-btn:active {
+  background: #004785;
+}
+
+/* Status */
+.status {
+  text-align: center;
+  font-size: 11px;
+  padding: 8px 15px;
+  margin: 0;
+  min-height: 25px;
+  border-top: 1px solid #e0e0e0;
+  background: #f8f9fa;
+}
+
+.status.loading {
+  color: #007acc;
+  background: #e7f3ff;
+}
+
+.status.error {
+  color: #721c24;
+  background: #f8d7da;
+}
+
+.status.success {
+  color: #155724;
+  background: #d4edda;
+}
+
+/* Not I-Doit message */
+.not-idoit-message {
+  text-align: center;
+  padding: 40px 20px;
+  background: white;
+}
+
+.not-idoit-message h3 {
+  color: #007acc;
+  margin-bottom: 20px;
+  border: none;
+  padding: 0;
+}
+
+.not-idoit-message p {
+  margin: 15px 0;
+  color: #666;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.not-idoit-message code {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #d63384;
+}
+
+.not-idoit-message .options-link {
+  display: inline-block;
+  margin-top: 15px;
+  padding: 8px 16px;
+  background: #007acc;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.3s;
+}
+
+.not-idoit-message .options-link:hover {
+  background: #005a9e;
+}
