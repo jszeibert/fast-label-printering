@@ -13,9 +13,7 @@ const browserAPI = (function() {
 // Context detection
 const isFirefox = typeof browser !== 'undefined';
 const isChrome = typeof chrome !== 'undefined' && typeof browser === 'undefined';
-const isSidebar = window.location.search.includes('sidebar') || 
-                 document.body.clientWidth > 300 ||
-                 window.name === 'sidebar';
+const isSidebar = document.body.dataset.context === 'sidebar';
 
 console.log('Extension context:', {
   isFirefox,
@@ -117,13 +115,19 @@ async function saveSettings() {
     };
 
     // Update global settings
+    const keyMapping = {
+      'idoit-base-url': 'idoitUrl',
+      'zpl-template': 'zplTemplate',
+      'printer-url': 'printerUrl',
+      'preview-api-url': 'previewApiUrl',
+      'replace-list': 'replaceList'
+    };
+
     Object.keys(settingsToSave).forEach(key => {
-      const settingKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase()).replace('-', '');
-      if (settingKey === 'idoitBaseUrl') settings.idoitUrl = settingsToSave[key];
-      else if (settingKey === 'zplTemplate') settings.zplTemplate = settingsToSave[key];
-      else if (settingKey === 'printerUrl') settings.printerUrl = settingsToSave[key];
-      else if (settingKey === 'previewApiUrl') settings.previewApiUrl = settingsToSave[key];
-      else if (settingKey === 'replaceList') settings.replaceList = settingsToSave[key];
+      const settingKey = keyMapping[key];
+      if (settingKey) {
+        settings[settingKey] = settingsToSave[key];
+      }
     });
 
     // Save to extension storage
@@ -395,7 +399,7 @@ function setupEventListeners() {
 }
 
 // Initialize when DOM is loaded
-if (document.readyState === 'loading') {
+if (document.readyState === 'loading' || document.readyState === 'interactive') {
   document.addEventListener('DOMContentLoaded', initializeExtension);
 } else {
   initializeExtension();
