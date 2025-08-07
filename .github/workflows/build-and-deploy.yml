@@ -7,127 +7,55 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: "release"
-  cancel-in-progress: false
-
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
       with:
         node-version: '18'
         
     - name: Install web-ext
       run: npm install -g web-ext
         
-    - name: Extract version from manifest
+    - name: Get version
       id: version
-      run: |
-        VERSION=$(node -p "require('./src/manifest.json').version")
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Extension version: $VERSION"
+      run: echo "version=$(node -p "require('./src/manifest.json').version")" >> $GITHUB_OUTPUT
         
-    - name: Check if version already released
-      id: check_release
+    - name: Check if already released
+      id: check
       run: |
         if git tag --list | grep -q "^v${{ steps.version.outputs.version }}$"; then
-          echo "exists=true" >> $GITHUB_OUTPUT
-          echo "Version v${{ steps.version.outputs.version }} already exists"
+          echo "skip=true" >> $GITHUB_OUTPUT
         else
-          echo "exists=false" >> $GITHUB_OUTPUT
-          echo "Version v${{ steps.version.outputs.version }} is new"
+          echo "skip=false" >> $GITHUB_OUTPUT
         fi
         
-    - name: Build extensions
-      if: steps.check_release.outputs.exists == 'false'
+    - name: Build Firefox
+      if: steps.check.outputs.skip == 'false'
       run: |
-        # Create build directory
-        mkdir -p dist
-        
-        # Build Firefox XPI (self-hosted with update_url)
-        echo "Building Firefox extension (self-hosted)..."
         web-ext build --source-dir=src --artifacts-dir=dist --overwrite-dest
+        cd dist && mv *.zip firefox-v${{ steps.version.outputs.version }}.xpi
         
-        # Rename Firefox XPI
-        cd dist
-        XPI_FILE=$(ls *.zip | head -n 1)
-        if [ -n "$XPI_FILE" ]; then
-          mv "$XPI_FILE" "fast-label-printering-firefox-${{ steps.version.outputs.version }}-unsigned.xpi"
-          echo "Created: fast-label-printering-firefox-${{ steps.version.outputs.version }}-unsigned.xpi"
-        fi
-        cd ..
+    - name: Build Chrome
+      if: steps.check.outputs.skip == 'false'
+      run: |
+        mkdir chrome && cp -r src/* chrome/
+        node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync('chrome/manifest.json')); delete m.browser_specific_settings; fs.writeFileSync('chrome/manifest.json', JSON.stringify(m,null,2));"
+        cd chrome && zip -r ../dist/chrome-v${{ steps.version.outputs.version }}.zip .
         
-        # Build Chrome ZIP (remove Firefox-specific fields)
-        echo "Building Chrome extension..."
-        
-        # Create temp directory for Chrome build
-        mkdir -p chrome-build
-        cp -r src/* chrome-build/
-        
-        # Remove Firefox-specific fields from Chrome manifest
-        node -e "
-          const fs = require('fs');
-          const manifest = JSON.parse(fs.readFileSync('chrome-build/manifest.json'));
-          delete manifest.browser_specific_settings;
-          fs.writeFileSync('chrome-build/manifest.json', JSON.stringify(manifest, null, 2));
-        "
-        
-        # Create Chrome ZIP
-        cd chrome-build
-        zip -r ../dist/fast-label-printering-chrome-${{ steps.version.outputs.version }}.zip . -x "*.DS_Store"
-        cd ..
-        
-        # Clean up
-        rm -rf chrome-build
-        
-        echo "Build completed!"
-        ls -la dist/
-        
-    - name: Create GitHub Prerelease
-      if: steps.check_release.outputs.exists == 'false'
+    - name: Prerelease
+      if: steps.check.outputs.skip == 'false'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ steps.version.outputs.version }}
-        name: "Fast Label Printering v${{ steps.version.outputs.version }} (Prerelease)"
+        name: "v${{ steps.version.outputs.version }}"
         files: |
-          dist/fast-label-printering-firefox-${{ steps.version.outputs.version }}-unsigned.xpi
-          dist/fast-label-printering-chrome-${{ steps.version.outputs.version }}.zip
-        body: |
-          ## Fast Label Printering v${{ steps.version.outputs.version }} (Prerelease)
-          
-          > ⚠️ **Firefox Extension Notice**: The Firefox extension is unsigned and marked as prerelease. 
-          > For production use, the XPI needs to be submitted to Mozilla for signing.
-          
-          ### 📥 Installation
-          
-          **Firefox (Development/Testing):**
-          1. Download the `-unsigned.xpi` file below
-          2. Open Firefox and go to `about:config`
-          3. Set `xpinstall.signatures.required` to `false` (for testing only)
-          4. Go to `about:addons`, click gear icon, select "Install Add-on From File..."
-          5. Select the downloaded `.xpi` file
-          
-          **Chrome/Edge (Production Ready):**
-          1. Download the `.zip` file below and extract it
-          2. Open Chrome/Edge and go to `chrome://extensions/`
-          3. Enable "Developer mode"
-          4. Click "Load unpacked" and select the extracted folder
-          
-          ### 🔄 Next Steps for Firefox
-          - Submit to Mozilla Add-ons for signing
-          - Once signed, this will become a full release
-          - Automatic updates will be enabled after signing
-        draft: false
-        prerelease: true  # Mark as prerelease since Firefox XPI is unsigned
+          dist/firefox-v${{ steps.version.outputs.version }}.xpi
+          dist/chrome-v${{ steps.version.outputs.version }}.zip
+        prerelease: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

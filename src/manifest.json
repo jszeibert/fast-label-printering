@@ -9,11 +9,6 @@
       "update_url": "https://jszeibert.github.io/fast-label-printering/update.json"
     }
   },
-  "applications": {
-    "gecko": {
-      "id": "fast-label-printering@jszeibert.github.io"
-    }
-  },
   "permissions": [
     "storage",
     "tabs", 

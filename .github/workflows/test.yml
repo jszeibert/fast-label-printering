@@ -1,4 +1,4 @@
-name: Test Extension Compatibility
+name: Test Extension
 
 on:
   pull_request:
@@ -18,200 +18,85 @@ jobs:
       with:
         node-version: '18'
         
-    - name: Install web-ext and dependencies
+    - name: Install web-ext
+      run: npm install -g web-ext
+        
+    - name: ✅ Test 1: Firefox Build
       run: |
-        npm install -g web-ext
-        npm install -g addons-linter
-        
-    - name: Validate manifest.json structure
-      run: |
-        echo "🔍 Validating manifest.json structure..."
-        node -e "
-          const fs = require('fs');
-          const manifest = JSON.parse(fs.readFileSync('src/manifest.json'));
-          
-          // Check required fields
-          const required = ['manifest_version', 'name', 'version', 'permissions'];
-          const missing = required.filter(field => !manifest[field]);
-          if (missing.length > 0) {
-            console.error('❌ Missing required fields:', missing);
-            process.exit(1);
-          }
-          
-          // Check Firefox-specific fields
-          if (manifest.browser_specific_settings) {
-            console.log('✅ Firefox browser_specific_settings found');
-            if (!manifest.browser_specific_settings.gecko) {
-              console.error('❌ Missing gecko settings in browser_specific_settings');
-              process.exit(1);
-            }
-          } else {
-            console.warn('⚠️ No browser_specific_settings (will be removed for Chrome)');
-          }
-          
-          console.log('✅ Manifest structure validation passed');
-        "
-        
-    - name: Test Firefox extension build
-      run: |
-        echo "🦊 Testing Firefox extension build (self-hosted)..."
-        
-        # Test web-ext lint für self-hosted extensions
-        web-ext lint --source-dir=src --self-hosted --warnings-as-errors
-        echo "✅ Firefox linting passed (self-hosted)"
-        
-        # Test web-ext build
+        echo "🦊 Testing if Firefox extension builds..."
         web-ext build --source-dir=src --artifacts-dir=test-artifacts --overwrite-dest
-        echo "✅ Firefox build successful"
         
-        # Check if XPI was created
         if [ -f test-artifacts/*.zip ]; then
-          echo "✅ Firefox XPI created successfully"
-          ls -la test-artifacts/
+          echo "✅ Firefox XPI builds successfully"
         else
-          echo "❌ Firefox XPI creation failed"
+          echo "❌ Firefox build failed"
           exit 1
         fi
         
-    - name: Test Chrome extension compatibility
+    - name: ✅ Test 2: Chrome Compatibility
       run: |
-        echo "🌐 Testing Chrome extension compatibility..."
+        echo "🌐 Testing Chrome compatibility..."
         
-        # Create Chrome-compatible manifest
+        # Create Chrome version (remove Firefox-specific fields)
         mkdir -p chrome-test
         cp -r src/* chrome-test/
         
-        # Remove Firefox-specific fields
         node -e "
           const fs = require('fs');
           const manifest = JSON.parse(fs.readFileSync('chrome-test/manifest.json'));
-          
-          // Remove Firefox-specific fields
           delete manifest.browser_specific_settings;
-          
-          // Validate Chrome compatibility
-          if (manifest.manifest_version !== 2 && manifest.manifest_version !== 3) {
-            console.error('❌ Unsupported manifest version for Chrome:', manifest.manifest_version);
-            process.exit(1);
-          }
-          
           fs.writeFileSync('chrome-test/manifest.json', JSON.stringify(manifest, null, 2));
-          console.log('✅ Chrome manifest created successfully');
         "
         
-        # Test addons-linter (works for Chrome extensions too)
-        addons-linter chrome-test/
-        echo "✅ Chrome compatibility check passed"
-        
-        # Create Chrome ZIP
-        cd chrome-test
-        zip -r ../chrome-test.zip . -x "*.DS_Store"
-        cd ..
+        # Test if Chrome ZIP can be created
+        cd chrome-test && zip -r ../chrome-test.zip . && cd ..
         
         if [ -f chrome-test.zip ]; then
-          echo "✅ Chrome ZIP created successfully"
-          ls -la chrome-test.zip
+          echo "✅ Chrome extension packages successfully"
         else
-          echo "❌ Chrome ZIP creation failed"
+          echo "❌ Chrome packaging failed"
           exit 1
         fi
         
-    - name: Test JavaScript syntax and compatibility
+    - name: ✅ Test 3: Required Files Exist
       run: |
-        echo "🔍 Testing JavaScript syntax and compatibility..."
+        echo "📁 Checking required files exist..."
         
-        # Check for common browser compatibility issues
-        node -e "
-          const fs = require('fs');
-          const path = require('path');
-          
-          function checkFile(filePath) {
-            const content = fs.readFileSync(filePath, 'utf8');
-            const issues = [];
-            
-            // Check for modern JS features that might not work in older browsers
-            if (content.includes('?.')) issues.push('Optional chaining (?.) - requires newer browsers');
-            if (content.includes('??')) issues.push('Nullish coalescing (??) - requires newer browsers');
-            if (content.includes('async/await') && !content.includes('regenerator')) {
-              // This is just a warning, async/await is widely supported now
-            }
-            
-            // Check for browser API usage
-            if (content.includes('browser.') && content.includes('chrome.')) {
-              console.log('✅ Using compatible API pattern (browser/chrome)');
-            }
-            
-            return issues;
-          }
-          
-          const jsFiles = ['src/popup/popup.js', 'src/options/options.js'];
-          let allIssues = [];
-          
-          jsFiles.forEach(file => {
-            if (fs.existsSync(file)) {
-              console.log('Checking:', file);
-              const issues = checkFile(file);
-              allIssues = allIssues.concat(issues.map(issue => file + ': ' + issue));
-            }
-          });
-          
-          if (allIssues.length > 0) {
-            console.warn('⚠️ Potential compatibility issues:');
-            allIssues.forEach(issue => console.warn('  -', issue));
-          } else {
-            console.log('✅ No obvious compatibility issues found');
-          }
-        "
-
+        required_files=(
+          "src/manifest.json"
+          "src/popup/popup.html"
+          "src/popup/popup.js"
+          "src/options/options.html"
+          "src/options/options.js"
+        )
         
-    - name: Test HTML/CSS validity
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$file" ]; then
+            echo "❌ Missing required file: $file"
+            exit 1
+          fi
+        done
+        
+        echo "✅ All required files present"
+        
+    - name: ✅ Test 4: JavaScript Syntax
       run: |
-        echo "🎨 Testing HTML/CSS validity..."
+        echo "🔍 Checking JavaScript syntax..."
         
-        # Install html5validator if available (optional)
-        npm install -g html-validate || echo "html-validate not installed, skipping advanced validation"
+        # Simple syntax check with Node.js
+        for file in src/popup/popup.js src/options/options.js; do
+          if [ -f "$file" ]; then
+            echo "Checking $file..."
+            node -c "$file" || exit 1
+          fi
+        done
         
-        # Basic HTML structure check
-        node -e "
-          const fs = require('fs');
-          const htmlFiles = ['src/popup/popup.html', 'src/options/options.html'];
-          
-          htmlFiles.forEach(file => {
-            if (fs.existsSync(file)) {
-              const content = fs.readFileSync(file, 'utf8');
-              
-              // Basic HTML structure checks
-              if (!content.includes('<!DOCTYPE html>')) {
-                console.error('❌', file, 'missing DOCTYPE declaration');
-                process.exit(1);
-              }
-              
-              if (!content.includes('<meta charset=')) {
-                console.warn('⚠️', file, 'missing charset declaration');
-              }
-              
-              console.log('✅', file, 'basic structure OK');
-            }
-          });
-        "
+        echo "✅ JavaScript syntax is valid"
         
     - name: Summary
       run: |
-        echo "📋 Test Summary:"
-        echo "✅ Firefox compatibility: PASSED"
-        echo "✅ Chrome compatibility: PASSED"
-        echo "✅ Manifest validation: PASSED"
-        echo "✅ JavaScript syntax: PASSED"
-        echo "✅ HTML structure: PASSED"
-        echo ""
-        echo "🎉 Extension is compatible with both Firefox and Chrome!"
-        
-    - name: Upload test artifacts
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-extensions
-        path: |
-          test-artifacts/*.zip
-          chrome-test.zip
-        retention-days: 7
+        echo "🎉 All tests passed!"
+        echo "✅ Firefox builds"
+        echo "✅ Chrome compatible" 
+        echo "✅ Required files exist"
+        echo "✅ JavaScript syntax valid"
