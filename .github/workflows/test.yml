@@ -21,7 +21,7 @@ jobs:
     - name: Install web-ext
       run: npm install -g web-ext
         
-    - name: ✅ Test 1: Firefox Build
+    - name: Test Firefox Build
       run: |
         echo "🦊 Testing if Firefox extension builds..."
         web-ext build --source-dir=src --artifacts-dir=test-artifacts --overwrite-dest
@@ -33,7 +33,7 @@ jobs:
           exit 1
         fi
         
-    - name: ✅ Test 2: Chrome Compatibility
+    - name: Test Chrome Compatibility
       run: |
         echo "🌐 Testing Chrome compatibility..."
         
@@ -58,7 +58,7 @@ jobs:
           exit 1
         fi
         
-    - name: ✅ Test 3: Required Files Exist
+    - name: Test Required Files Exist
       run: |
         echo "📁 Checking required files exist..."
         
@@ -79,7 +79,7 @@ jobs:
         
         echo "✅ All required files present"
         
-    - name: ✅ Test 4: JavaScript Syntax
+    - name: Test JavaScript Syntax
       run: |
         echo "🔍 Checking JavaScript syntax..."
         
@@ -92,11 +92,3 @@ jobs:
         done
         
         echo "✅ JavaScript syntax is valid"
-        
-    - name: Summary
-      run: |
-        echo "🎉 All tests passed!"
-        echo "✅ Firefox builds"
-        echo "✅ Chrome compatible" 
-        echo "✅ Required files exist"
-        echo "✅ JavaScript syntax valid"
