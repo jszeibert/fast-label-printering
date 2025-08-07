@@ -3,8 +3,10 @@ const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
 // Default settings - ONLY HERE!
 const defaultSettings = {
-  idoitUrl: 'https://idoit.fast-lta.de',
+  idoitUrl: 'https://idoit.example.com',
   zplTemplate: `^XA
+^PW280          ; Set print width (1.00 in)
+^LL164          ; Set label length (0.50 in)
 ^CF0,27
 ^FO0,10^BQN,2,4^FDQA,{URL}/objID={ID}^FS
 ^FO145,25^FD{LINE1}^FS
@@ -14,7 +16,7 @@ const defaultSettings = {
 ^XZ`,
   previewApiUrl: 'http://api.labelary.com/v1/printers/12dpmm/labels/0.94x0.55/0/',
   replaceList: 'Development=Dev,Temperature=Temp.',
-  printerUrl: 'https://172.20.4.20/pstprnt'
+  printerUrl: 'https://localhost/pstprnt'
 };
 
 // Load settings
