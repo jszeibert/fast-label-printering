@@ -6,177 +6,56 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "release"
-  cancel-in-progress: false
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
       with:
         node-version: '18'
         
     - name: Install web-ext
       run: npm install -g web-ext
         
-    - name: Extract version from manifest
+    - name: Get version
       id: version
-      run: |
-        VERSION=$(node -p "require('./src/manifest.json').version")
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Extension version: $VERSION"
+      run: echo "version=$(node -p "require('./src/manifest.json').version")" >> $GITHUB_OUTPUT
         
-    - name: Check if version already released
-      id: check_release
+    - name: Check if already released
+      id: check
       run: |
         if git tag --list | grep -q "^v${{ steps.version.outputs.version }}$"; then
-          echo "exists=true" >> $GITHUB_OUTPUT
-          echo "Version v${{ steps.version.outputs.version }} already exists"
+          echo "skip=true" >> $GITHUB_OUTPUT
         else
-          echo "exists=false" >> $GITHUB_OUTPUT
-          echo "Version v${{ steps.version.outputs.version }} is new"
+          echo "skip=false" >> $GITHUB_OUTPUT
         fi
         
-    - name: Build extension
-      if: steps.check_release.outputs.exists == 'false'
+    - name: Build Firefox
+      if: steps.check.outputs.skip == 'false'
       run: |
-        # Create build directory
-        mkdir -p dist
-        
-        # Build XPI from src directory
         web-ext build --source-dir=src --artifacts-dir=dist --overwrite-dest
+        cd dist && mv *.zip firefox-v${{ steps.version.outputs.version }}.xpi
         
-        # Rename the generated file to include version
-        cd dist
-        XPI_FILE=$(ls *.zip | head -n 1)
-        if [ -n "$XPI_FILE" ]; then
-          mv "$XPI_FILE" "fast-label-printering-${{ steps.version.outputs.version }}.xpi"
-          echo "Created: fast-label-printering-${{ steps.version.outputs.version }}.xpi"
-        fi
+    - name: Build Chrome
+      if: steps.check.outputs.skip == 'false'
+      run: |
+        mkdir chrome && cp -r src/* chrome/
+        node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync('chrome/manifest.json')); delete m.browser_specific_settings; fs.writeFileSync('chrome/manifest.json', JSON.stringify(m,null,2));"
+        cd chrome && zip -r ../dist/chrome-v${{ steps.version.outputs.version }}.zip .
         
-    - name: Create GitHub Release
-      if: steps.check_release.outputs.exists == 'false'
+    - name: Prerelease
+      if: steps.check.outputs.skip == 'false'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ steps.version.outputs.version }}
-        name: "Fast Label Printering v${{ steps.version.outputs.version }}"
+        name: "v${{ steps.version.outputs.version }}"
         files: |
-          dist/fast-label-printering-${{ steps.version.outputs.version }}.xpi
-        body: |
-          ## Fast Label Printering v${{ steps.version.outputs.version }}
-          
-          ### 📥 Installation
-          1. Download the `.xpi` file below
-          2. Open Firefox and go to `about:addons`
-          3. Click the gear icon and select "Install Add-on From File..."
-          4. Select the downloaded `.xpi` file
-          
-          ### 🔄 Automatic Updates
-          This extension supports automatic updates via GitHub Pages.
-        draft: false
-        prerelease: false
+          dist/firefox-v${{ steps.version.outputs.version }}.xpi
+          dist/chrome-v${{ steps.version.outputs.version }}.zip
+        prerelease: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-    - name: Generate update.json for GitHub Pages
-      if: steps.check_release.outputs.exists == 'false'
-      run: |
-        # Fetch all releases to build comprehensive update.json
-        echo "Fetching release information..."
-        
-        # Get all release tags, sort by version descending
-        RELEASES=$(git tag --list --sort=-version:refname | grep '^v' | head -10)
-        
-        # Start building update.json
-        mkdir -p dist
-        echo '{
-          "addons": {
-            "fast-label-printering@jszeibert.github.io": {
-              "updates": [' > dist/update.json
-        
-        FIRST=true
-        for release_tag in $RELEASES; do
-          VERSION_NUM=$(echo $release_tag | sed 's/v//')
-          
-          if [ "$FIRST" = true ]; then
-            FIRST=false
-          else
-            echo "," >> dist/update.json
-          fi
-          
-          echo "                {
-                  \"version\": \"$VERSION_NUM\",
-                  \"update_link\": \"https://github.com/jszeibert/fast-label-printering/releases/download/$release_tag/fast-label-printering-$VERSION_NUM.xpi\"
-                }" >> dist/update.json
-        done
-        
-        # Close JSON structure
-        echo '              ]
-            }
-          }
-        }' >> dist/update.json
-        
-        echo "Generated update.json:"
-        cat dist/update.json
-        
-    - name: Create simple index.html for GitHub Pages
-      if: steps.check_release.outputs.exists == 'false'
-      run: |
-        cat > dist/index.html << 'EOF'
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Fast Label Printering - Firefox Extension</title>
-            <style>
-                body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-                .version { background: #f0f8ff; padding: 15px; margin: 15px 0; border-radius: 5px; }
-                .download { background: #ff6b35; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-                .download:hover { background: #e55a2b; }
-            </style>
-        </head>
-        <body>
-            <h1>🏷️ Fast Label Printering</h1>
-            <p>A Firefox extension for printing inventory labels from IDoit using ZPL on Zebra printers.</p>
-            
-            <div class="version">
-                <strong>Latest Version:</strong> ${{ steps.version.outputs.version }}
-            </div>
-            
-            <a href="https://github.com/jszeibert/fast-label-printering/releases/latest" class="download">
-                📥 Download Latest Release
-            </a>
-            
-            <h2>� Automatic Updates</h2>
-            <p>The extension will automatically check for updates. The update manifest is available at:</p>
-            <p><a href="update.json">update.json</a></p>
-            
-            <h2>🔗 Links</h2>
-            <p>
-                <a href="https://github.com/jszeibert/fast-label-printering">GitHub Repository</a> |
-                <a href="https://github.com/jszeibert/fast-label-printering/issues">Report Issues</a>
-            </p>
-        </body>
-        </html>
-        EOF
-        
-    - name: Deploy to GitHub Pages
-      if: steps.check_release.outputs.exists == 'false'
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./dist
-        force_orphan: true
+

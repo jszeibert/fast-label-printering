@@ -1,110 +1,102 @@
-# Fast Label Printing Extension
+# Fast Label Printering
 
-**Fast Label Printing Extension** is a Firefox browser extension that allows printing 25x14mm Inventory labels from IDoit using ZPL on Zebra printers.
-This is a generalized version that must be configured in the settings tab of the extension to work properly.
+Browser extension for printing inventory labels from I-Doit using ZPL on Zebra printers.
 
 ## 📥 Download
 
-The latest version of the extension is available at:
-**[GitHub Pages - Fast Label Printering](https://jszeibert.github.io/fast-label-printering/)**
+### Firefox
+- **Stable:** [Download from GitHub Pages](https://jszeibert.github.io/fast-label-printering/)
+- **Latest:** [Download from GitHub Releases](https://github.com/jszeibert/fast-label-printering/releases/latest)
 
-## Installation
+### Chrome/Edge
+- **Latest:** [Download ZIP from GitHub Releases](https://github.com/jszeibert/fast-label-printering/releases/latest)
 
-### Option 1: Via GitHub Pages (Recommended)
-1. Visit [https://jszeibert.github.io/fast-label-printering/](https://jszeibert.github.io/fast-label-printering/)
-2. Download the `.xpi` file
-3. Open Firefox and go to `about:addons`
-4. Click the gear icon and select "Install Add-on From File..."
-5. Select the downloaded `.xpi` file
+## 🚀 Installation
 
-### Option 2: Development Version
-1. Clone the repository: `git clone https://github.com/jszeibert/fast-label-printering.git`
-2. Open Firefox and go to `about:debugging`
-3. Click on "Load Temporary Add-On" and select `src/manifest.json`
+### Firefox
+1. Download the `.xpi` file
+2. Open Firefox → `about:addons`
+3. Click gear icon → "Install Add-on From File..."
+4. Select the downloaded `.xpi` file
 
-## 🔄 Automatic Updates
+### Chrome/Edge
+1. Download and extract the `.zip` file
+2. Open Chrome → `chrome://extensions/`
+3. Enable "Developer mode"
+4. Click "Load unpacked" → select extracted folder
 
-The extension is configured for automatic updates via GitHub Pages. Firefox will automatically check for and install updates when they become available.
+## ✨ Features
 
-## 🚀 Development & Build
+- **Auto-extract** object data from I-Doit pages
+- **Live preview** of labels before printing
+- **Direct printing** to Zebra printers via HTTP
+- **Customizable** ZPL templates and text replacements
+- **Cross-browser** compatible (Firefox & Chrome)
+
+## 🔧 Configuration
+
+Configure in the extension options page:
+
+### Required Settings
+- **I-Doit URL**: Your I-Doit instance URL (e.g., `https://idoit.example.com`)
+- **Zebra Printer URL**: Printer API endpoint (e.g., `http://localhost:631/pstprnt`)
+
+### Optional Settings
+- **ZPL Template**: Customize label layout with placeholders `{ID}`, `{Line1}`, `{Line2}`, `{TYPE}`
+- **Preview API**: Label preview service URL
+- **Text Replacements**: JSON list for text substitutions
+
+## 📖 Usage
+
+1. Navigate to an I-Doit object page
+2. Click the extension icon in the toolbar
+3. Extension auto-populates fields from the page
+4. Click "Show Preview" to see label preview
+5. Click "Print" to send to Zebra printer
+
+## 🔄 Updates
+
+- **Firefox**: Automatic updates via GitHub Pages
+- **Chrome**: Manual updates from GitHub Releases
+
+## 🛠️ Development
 
 ### Local Development
-For local development, you can load the extension directly from the `src/` folder:
+```bash
+git clone https://github.com/jszeibert/fast-label-printering.git
+```
 
-1. Open Firefox and go to `about:debugging`
-2. Click "This Firefox" in the left sidebar
-3. Click "Load Temporary Add-on"
-4. Navigate to the `src/` folder and select `manifest.json`
+**Firefox:**
+1. Open `about:debugging`
+2. "Load Temporary Add-on" → select `src/manifest.json`
+
+**Chrome:**
+1. Open `chrome://extensions/`
+2. Enable "Developer mode"
+3. "Load unpacked" → select `src/` folder
 
 ### Release Process
+1. Update version in `src/manifest.json`
+2. Commit and push to main branch
+3. GitHub Actions automatically builds and releases
 
-**Simple Version-Based Releases:**
-
-1. **Update version in `src/manifest.json`:**
-   ```json
-   {
-     "version": "1.1"
-   }
-   ```
-
-2. **Commit and push to main:**
-   ```bash
-   git add src/manifest.json
-   git commit -m "Release v1.1: Add new features"
-   git push origin main
-   ```
-
-3. **Automatic Release Process:**
-   - ✅ GitHub Actions detects the new version
-   - ✅ Builds and packages the extension from `src/` folder
-   - ✅ Creates a GitHub Release with the `.xpi` file
-   - ✅ Updates `update.json` with all available versions
-   - ✅ Deploys to GitHub Pages
-
-### Project Structure
+## 📁 Project Structure
 
 ```
-├── src/                    # Extension source files
-│   ├── manifest.json      # Extension manifest
-│   ├── sidebar/           # Sidebar components
+├── src/
+│   ├── manifest.json       # Extension manifest (Firefox + Chrome compatible)
+│   ├── popup/             # Extension popup UI
+│   ├── options/           # Settings page
 │   └── icons/             # Extension icons
-├── .github/workflows/     # GitHub Actions
-├── .gitignore            # Git ignore rules
-└── README.md             # Documentation
+└── .github/workflows/     # Automated builds
 ```
 
-**Key Benefits:**
-- 🎯 **Version-driven**: Only the manifest.json version matters
-- 🚀 **Zero-config releases**: Just update version and push
-- 🧹 **Clean builds**: Only necessary files from `src/` are packaged
-- 🔄 **Smart updates**: Comprehensive update.json with version history
-- 📦 **No dependencies**: No npm or build tools required
+## 🔑 Permissions
 
-## Usage
+- **Storage**: Save extension settings
+- **Active Tab**: Access current I-Doit page
+- **Host Permissions**: Communicate with printer and preview APIs
 
-1. Open IDoit and navigate to an object.
-2. Click on the extension icon to open the sidebar.
-3. The extension will automatically populate the fields with the object information.
-4. Click on "Show Preview" to display a preview of the label.
-5. Click on "Print" to print the label.
+## 📄 License
 
-## Settings
-
-The following settings need to be configured in the extension:
-
-- **I-Doit URL**: The base URL of your IDoit instance without trailing `/`. e.g. `https://idoit.example.com`
-- **Zebra Printer URL**: The URL of the Zebra printer's print API. e.g.: `http://localhost:631/pstprnt`
-
-The following settings are prefilled and can be adjusted to your liking:
-
-- **I-Doit ZPL Label Template**: The ZPL template for the label, including placeholders for the data input fields.
-    - Placeholders are: `{ID}, {Line1}, {Line2}, {TYPE}`
-- **Preview API URL**: The URL of the API used to generate label previews.
-- **Replace List**: A JSON list of strings that should be replaced in the label data.
-
-## Permissions
-
-This extension requires the following permissions:
-- Access to tabs and active tabs
-- Access to all URLs "http://*/*", "https://*/*" for requests to the printer API and the preview API
-- Access to the storage to store the settings
+MIT
