@@ -8,7 +8,7 @@ const defaultSettings = {
 ^PW280          ; Set print width (1.00 in)
 ^LL164          ; Set label length (0.50 in)
 ^CF0,27
-^FO0,10^BQN,2,4^FDQA,{URL}/objID={ID}^FS
+^FO0,10^BQN,2,4^FDQA,{URL}/?objID={ID}^FS
 ^FO145,25^FD{LINE1}^FS
 ^FO145,60^FD{LINE2}^FS
 ^FO145,100^A0N,20,20^FD{TYPE}^FS
